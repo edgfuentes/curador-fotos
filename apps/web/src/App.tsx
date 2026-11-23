@@ -14,8 +14,16 @@ import { SectorWindows } from './components/SectorWindow';
 import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
 import { UpdatePrompt } from './components/UpdatePrompt';
+import { MobileApp } from './components/mobile/MobileApp';
+import { useMobileUi } from './app/device';
 
 export function App() {
+  const { fileSystem } = usePlatform();
+  // iPhone/iPad (pantalla táctil) o navegadores sin acceso a carpetas: versión táctil.
+  return useMobileUi(fileSystem.isSupported()) ? <MobileApp /> : <DesktopApp />;
+}
+
+function DesktopApp() {
   const { fileSystem } = usePlatform();
   const store = useStoreApi();
   const phase = useSession((s) => s.phase);

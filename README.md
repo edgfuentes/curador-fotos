@@ -84,6 +84,20 @@ Al terminar verás un resumen con las fotos copiadas, verificadas y con errores.
 
 Los sectores, las validaciones, los desfases y el orden manual se guardan solos en este navegador (IndexedDB). No se pierden si cierras la pestaña.
 
+### En iPhone y iPad
+
+Abre la misma dirección en **Safari**. Para usarla como app: *Compartir → Agregar a pantalla de inicio*. En pantallas táctiles se abre una versión pensada para el dedo. En el Mac puedes verla con `?movil` al final de la dirección.
+
+1. **Clasificar.** Escribe el nombre de la carrera y toca *Elegir fotos de la carrera…*. Las fotos se copian dentro de la app sin recomprimir; la fototeca no se toca. Para clasificar puedes:
+   - seleccionar varias fotos y tocar su sector;
+   - ir *una por una*: tocas el sector y pasa sola a la siguiente.
+2. **Validar.** Elige un sector y desliza cada foto: a la **derecha la apruebas** y a la **izquierda la rechazas**. ↶ deshace la última decisión.
+3. **Guardar.** Las aprobadas se comparten sector por sector, en grupos de 30, numeradas 001_, 002_…
+   - *Guardar N imágenes* las deja en Fotos. Desde ahí, *Añadir a álbum → Nuevo álbum*.
+   - *Guardar en Archivos* las deja en una carpeta para subir a la web.
+
+Safari no permite que una página web cree álbumes en Fotos, así que el álbum se arma con esos dos toques. *Mis carreras* permite agregar más fotos a una carrera o borrarla para liberar espacio.
+
 ### Formatos
 
 | Formato | Vista previa |
