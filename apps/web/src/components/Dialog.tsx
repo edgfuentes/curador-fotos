@@ -18,6 +18,8 @@ export function Dialog({
   useEffect(() => {
     const d = ref.current;
     if (d && !d.open) d.showModal();
+    // El navegador enfoca el primer botón (cerrar); preferir el campo marcado con data-autofocus.
+    d?.querySelector<HTMLElement>('[data-autofocus]')?.focus();
     return () => d?.close();
   }, []);
   return (

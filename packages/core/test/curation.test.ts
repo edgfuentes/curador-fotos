@@ -3,6 +3,10 @@ import {
   assignSector,
   commit,
   countBySector,
+  countGroups,
+  filterBySource,
+  groupBySource,
+  markForSector,
   createHistory,
   DEFAULT_FILTER,
   detectFormat,
@@ -163,5 +167,42 @@ describe('reconciliación de marcas y duplicados', () => {
     ];
     expect(duplicateCandidates(photos).map((p) => p.id)).toEqual(['a.jpg', 'b.jpg', 'c.jpg']);
     expect(exactDuplicateGroups(photos)).toEqual([['a.jpg', 'b.jpg']]);
+  });
+});
+
+describe('curación por sector con vista estable por carpeta', () => {
+  const a1 = makePhoto('Fotógrafo A/IMG_1.jpg', { time: '2024:05:01 10:00:00' });
+  const a2 = makePhoto('Fotógrafo A/IMG_2.jpg', { time: '2024:05:01 09:00:00' });
+  const b1 = makePhoto('Fotógrafo B/DSC_1.jpg', { time: '2024:05:01 09:30:00' });
+  const photos = [a1, a2, b1];
+
+  it('agrupa por carpeta de origen y ordena por captura, sin importar el sector asignado', () => {
+    const before = groupBySource(photos, {});
+    expect(before.map((g) => [g.name, g.photoIds])).toEqual([
+      ['Fotógrafo A', [a2.id, a1.id]],
+      ['Fotógrafo B', [b1.id]],
+    ]);
+    const lib = markForSector(emptyLibraryState(), [a1], 'Sector 3');
+    expect(groupBySource(photos, {})).toEqual(before); // la foto no se mueve en la vista de curación
+    expect(orderLibrary(photos, lib, {}).sectors.find((s) => s.name === 'Sector 3')?.photoIds).toEqual([a1.id]);
+  });
+
+  it('markForSector asigna y marca en un paso, y se deshace con setStatus', () => {
+    const lib = markForSector(emptyLibraryState(), [a1, b1], 'Sector 1');
+    expect(statusOf(lib, a1.id)).toBe('marked');
+    expect(lib.records[b1.id]?.sector).toBe('Sector 1');
+    expect(lib.extraSectors).toContain('Sector 1');
+    const moved = markForSector(lib, [a1], 'Sector 2');
+    expect(moved.records[a1.id]?.sector).toBe('Sector 2');
+    expect(statusOf(moved, a1.id)).toBe('marked');
+  });
+
+  it('filtra por carpeta de origen y cuenta por grupo', () => {
+    const lib = markForSector(emptyLibraryState(), [a1], 'Sector 1');
+    const groups = groupBySource(photos, {});
+    const byId = new Map(photos.map((p) => [p.id, p]));
+    const onlyB = filterBySource(groups, byId, lib, { ...DEFAULT_FILTER, folder: 'Fotógrafo B' });
+    expect(onlyB.map((s) => s.sector)).toEqual(['Fotógrafo B']);
+    expect(countGroups(groups, lib).bySector.get('Fotógrafo A')).toEqual({ total: 2, pending: 1, marked: 1, discarded: 0 });
   });
 });

@@ -87,6 +87,17 @@ export function assignSector(
   return { ...library, records, manualOrder, extraSectors };
 }
 
+/** Marca las fotos para publicar dentro de `sector` (asignación + estado en un solo paso). */
+export function markForSector(
+  library: LibraryState,
+  photos: readonly Photo[],
+  sector: string,
+  now = Date.now(),
+): LibraryState {
+  if (photos.length === 0) return library;
+  return setStatus(assignSector(library, photos, sector, now), photos, 'marked', now);
+}
+
 export function addSector(library: LibraryState, name: string): LibraryState {
   const clean = name.trim();
   if (!clean || library.extraSectors.includes(clean)) return library;

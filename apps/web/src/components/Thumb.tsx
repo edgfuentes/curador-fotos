@@ -1,6 +1,7 @@
 import { memo, type DragEvent } from 'react';
 import { formatWallClock, type CurationStatus, type Photo } from '@curador/core';
 import { useView } from '../app/useView';
+import { SectorSelect, type Choice } from './SectorSelect';
 
 export const STATUS_LABEL: Record<CurationStatus, string> = {
   pending: 'pendiente',
@@ -16,12 +17,16 @@ interface Props {
   duplicate: boolean;
   time: number | undefined;
   size: number;
-  dropSide: 'before' | 'after' | null;
+  dropSide?: 'before' | 'after' | null;
+  /** Sector asignado (se muestra si la foto está marcada). */
+  sector: string | undefined;
+  sectorNames: readonly string[];
+  onChoose(id: string, choice: Choice): void;
   onClick(e: React.MouseEvent, id: string): void;
   onDoubleClick(id: string): void;
   onDragStart(e: DragEvent, id: string): void;
-  onDragOver(e: DragEvent, id: string): void;
-  onDrop(e: DragEvent, id: string): void;
+  onDragOver?(e: DragEvent, id: string): void;
+  onDrop?(e: DragEvent, id: string): void;
   onDragEnd(): void;
 }
 
@@ -40,8 +45,8 @@ export const Thumb = memo(function Thumb(p: Props) {
       data-id={p.photo.id}
       draggable
       onDragStart={(e) => p.onDragStart(e, p.photo.id)}
-      onDragOver={(e) => p.onDragOver(e, p.photo.id)}
-      onDrop={(e) => p.onDrop(e, p.photo.id)}
+      onDragOver={p.onDragOver ? (e) => p.onDragOver!(e, p.photo.id) : undefined}
+      onDrop={p.onDrop ? (e) => p.onDrop!(e, p.photo.id) : undefined}
       onDragEnd={p.onDragEnd}
     >
       <button
@@ -80,6 +85,23 @@ export const Thumb = memo(function Thumb(p: Props) {
           <span className="tile-time">{time}</span>
         </span>
       </button>
+      <div className="tile-assign">
+        {p.focused || p.selected ? (
+          <SectorSelect
+            status={p.status}
+            sector={p.sector}
+            sectorNames={p.sectorNames}
+            onChoose={(c) => p.onChoose(p.photo.id, c)}
+            label={`Qué hacer con ${p.photo.fileName}`}
+          />
+        ) : p.status === 'marked' ? (
+          <span className="chip chip-marked" title={`Marcada para ${p.sector ?? ''}`}>
+            ✓ {p.sector}
+          </span>
+        ) : p.status === 'discarded' ? (
+          <span className="chip chip-discarded">✕ Descartada</span>
+        ) : null}
+      </div>
     </div>
   );
 });

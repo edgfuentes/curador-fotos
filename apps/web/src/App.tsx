@@ -6,8 +6,11 @@ import { ExportDialog } from './components/ExportDialog';
 import { Grid } from './components/Grid';
 import { HelpDialog } from './components/HelpDialog';
 import { Home, Unsupported } from './components/Home';
+import { NewSectorDialog } from './components/NewSectorDialog';
 import { Review } from './components/Review';
 import { ScanProgress } from './components/ScanProgress';
+import { SectorsPanel } from './components/SectorsPanel';
+import { SectorWindows } from './components/SectorWindow';
 import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
 import { UpdatePrompt } from './components/UpdatePrompt';
@@ -47,13 +50,16 @@ export function App() {
             <main id="main" className="main">
               <Grid />
             </main>
+            <SectorsPanel />
           </div>
+          <SectorWindows />
           {view === 'review' && <Review />}
         </div>
       )}
       {dialog === 'help' && <HelpDialog />}
       {dialog === 'cameras' && <CamerasDialog />}
       {dialog === 'export' && <ExportDialog />}
+      {dialog === 'new-sector' && <NewSectorDialog />}
       <div className="toasts" role="status" aria-live="polite">
         {toasts.map((t) => (
           <div key={t.id} className={`toast toast-${t.tone}`}>

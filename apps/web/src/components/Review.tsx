@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { cameraDisplayName, formatOffset, formatWallClock, statusOf } from '@curador/core';
 import { useDerived, useSession, useStoreApi } from '../app/context';
 import { usePreload, useView } from '../app/useView';
+import { SectorSelect } from './SectorSelect';
 import { STATUS_LABEL } from './Thumb';
 
 function formatBytes(n: number): string {
@@ -11,7 +12,7 @@ function formatBytes(n: number): string {
 
 export function Review() {
   const store = useStoreApi();
-  const { visible, ordered } = useDerived();
+  const { visible, ordered, sectorNames } = useDerived();
   const focusId = useSession((s) => s.focusId);
   const byId = useSession((s) => s.byId);
   const library = useSession((s) => s.history.present);
@@ -58,11 +59,11 @@ export function Review() {
         <div className="review-title">
           <strong>{photo.fileName}</strong>
           <span className="muted">
-            {index + 1} de {visible.length} · {sector}
+            {index + 1} de {visible.length} · {photo.folder || 'carpeta raíz'}
           </span>
         </div>
         <span className={`status-pill status-${status}`} aria-live="polite">
-          {STATUS_LABEL[status]}
+          {status === 'marked' ? `✓ ${sector}` : STATUS_LABEL[status]}
         </span>
       </header>
 
@@ -116,6 +117,18 @@ export function Review() {
           </span>
         </div>
         <div className="review-actions" role="toolbar" aria-label="Acciones de curación">
+          <SectorSelect
+            className="review-select"
+            status={status}
+            sector={sector}
+            sectorNames={sectorNames}
+            label="Marcar para un sector"
+            onChoose={(c) => {
+              if (c === 'new') return store.askNewSector([photo.id]);
+              store.choose([photo.id], c);
+              if (c !== 'pending' && afterMark) store.focus(afterMark);
+            }}
+          />
           <button className={`btn ${status === 'marked' ? 'btn-marked' : ''}`} onClick={() => store.mark('marked', afterMark)} aria-pressed={status === 'marked'}>
             ✓ Marcar <kbd>P</kbd>
           </button>

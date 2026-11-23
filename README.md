@@ -22,26 +22,34 @@ No hay servidor: las fotos nunca salen del computador.
 2. Pulsa **«Elegir carpeta de fotos…»** y elige la carpeta de la semana. Se leen todas las subcarpetas.
    - La próxima vez puedes pulsar **«Continuar con …»**: el navegador vuelve a pedir permiso con un clic.
    - Para probar sin tus fotos, usa **«Probar con fotos de demostración»**.
-3. Revisa la cuadrícula: las fotos están agrupadas por **sector**, que es la primera subcarpeta (por ejemplo `Sector 1/`), y ordenadas por fecha de captura.
+3. La pantalla tiene tres columnas:
+   - **Izquierda:** filtros por estado, carpeta de origen, cámara y duplicados.
+   - **Centro:** todas las fotos cargadas, agrupadas por **carpeta de origen** y ordenadas por fecha de captura. Al marcarlas **no cambian de lugar**.
+   - **Derecha:** los **sectores**, cada uno con cuántas fotos tiene marcadas y una muestra de 3.
 4. Si una cámara tenía la hora mal, ve a **Ajustar hora de cámaras…** e indica el desfase. También puedes escribir la hora real de su primera foto y pulsar «Calcular desfase».
-5. Cura con el teclado:
+5. Para decidir qué hacer con una foto, selecciónala y usa la **lista desplegable bajo la miniatura**: marcarla para un sector, dejarla pendiente, descartarla o crear un sector nuevo. Si tienes varias fotos seleccionadas, la elección se aplica a todas. También puedes **arrastrar** fotos a la tarjeta de un sector o usar el teclado:
 
 | Tecla | Acción |
 |---|---|
 | ← → ↑ ↓ | Moverse entre fotos |
 | Intro / Espacio | Abrir a pantalla completa |
-| **P** | Marcar para publicar (otra vez: desmarcar) |
+| **1 … 9** | Marcar para el sector con ese número (panel derecho) |
+| **P** | Marcar en su sector actual (otra vez: desmarcar) |
 | **X** | Descartar |
 | **U** | Volver a pendiente |
 | **Z** | Zoom al 100 % (original) |
 | Esc / G | Volver a la cuadrícula |
 | ⌘Z / ⇧⌘Z | Deshacer / rehacer |
-| ⌥← / ⌥→ | Mover la foto en el orden manual |
 | ⇧ clic / ⌘ clic, ⌘A | Seleccionar rango / varias / todas |
 | E | Exportar |
 | ? | Ayuda de atajos |
 
-6. Para fijar el orden final, **arrastra y suelta** miniaturas. El orden manual se guarda y prevalece sobre el orden por fecha. Si después agregas fotos nuevas, se intercalan según su hora de captura.
+6. Para ver un sector completo, pulsa su tarjeta (↗). Se abre en una **ventana aparte**, que puedes poner al lado o en otro monitor, y se actualiza en vivo mientras sigues marcando. Ahí ves todas sus fotos en el orden de exportación (001, 002…) y puedes:
+   - **arrastrarlas** para fijar el orden final, o moverlas con ⌥← / ⌥→;
+   - moverlas a otro sector con su lista;
+   - quitarlas con ✕ o ⌫.
+
+   El orden manual prevalece sobre el orden por fecha, y si después marcas más fotos, se intercalan según su hora de captura. Si el navegador bloquea la ventana, permite las ventanas emergentes para este sitio.
 7. Pulsa **Exportar seleccionadas** y elige la carpeta de destino, por ejemplo el Escritorio. La app crea:
 
 ```

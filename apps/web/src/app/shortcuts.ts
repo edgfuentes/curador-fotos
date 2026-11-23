@@ -50,14 +50,15 @@ export function useShortcuts(store: SessionStore): void {
       }
       if (mod) return;
 
-      // Orden manual
-      if (e.altKey && (key === 'ArrowLeft' || key === 'ArrowRight')) {
-        handled();
-        store.nudge(key === 'ArrowLeft' ? -1 : 1);
-        return;
-      }
-
       const next = i >= 0 ? (visible[i + 1] ?? null) : null;
+
+      // 1–9: marcar para el sector con ese número (panel derecho).
+      if (/^[1-9]$/.test(key) && !e.altKey) {
+        const sector = derive(s).sectorNames[Number(key) - 1];
+        handled();
+        if (!sector) return store.toast(`No hay un sector ${key}. Créalo en el panel de sectores.`);
+        return store.markForSector(sector, undefined, inReview && s.autoAdvance ? next : null);
+      }
       switch (key) {
         case 'ArrowRight':
           handled();

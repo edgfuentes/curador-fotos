@@ -3,6 +3,10 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { statusOf, type PhotoId } from '@curador/core';
 import { useDerived, useSession, useStoreApi } from '../app/context';
 import { Thumb } from './Thumb';
+import type { Choice } from './SectorSelect';
+
+/** Tipo MIME propio para arrastrar fotos hacia el panel de sectores. */
+export const DRAG_MIME = 'application/x-curador-photos';
 
 type Row =
   | { kind: 'header'; sector: string; shown: number }
@@ -11,11 +15,11 @@ type Row =
 const GAP = 12;
 const PAD = 16;
 const HEADER_H = 52;
-const CAPTION_H = 44;
+const CAPTION_H = 76;
 
 export function Grid() {
   const store = useStoreApi();
-  const { sections, visible, ordered, counts } = useDerived();
+  const { sections, visible, ordered, folderCounts, sectorNames } = useDerived();
   const tileSize = useSession((s) => s.tileSize);
   const byId = useSession((s) => s.byId);
   const library = useSession((s) => s.history.present);
@@ -27,7 +31,6 @@ export function Grid() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
-  const [drag, setDrag] = useState<{ ids: PhotoId[]; target: PhotoId | null; side: 'before' | 'after' } | null>(null);
 
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -90,50 +93,33 @@ export function Grid() {
   );
   const onDoubleClick = useCallback((id: PhotoId) => store.openReview(id), [store]);
 
+  const onChoose = useCallback(
+    (id: PhotoId, choice: Choice) => {
+      const ids = store.targetsFor(id);
+      if (choice === 'new') store.askNewSector(ids);
+      else store.choose(ids, choice);
+    },
+    [store],
+  );
+
+  // Arrastrar una o varias fotos hacia un sector del panel derecho.
   const onDragStart = useCallback(
     (e: DragEvent, id: PhotoId) => {
       const ids = selection.has(id) ? visible.filter((v) => selection.has(v)) : [id];
       if (!selection.has(id)) store.focus(id);
-      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.effectAllowed = 'copyMove';
+      e.dataTransfer.setData(DRAG_MIME, JSON.stringify(ids));
       e.dataTransfer.setData('text/plain', ids.join('\n'));
-      setDrag({ ids, target: null, side: 'before' });
     },
     [selection, visible, store],
   );
-  const onDragOver = useCallback((e: DragEvent, id: PhotoId) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const side = e.clientX < r.left + r.width / 2 ? 'before' : 'after';
-    setDrag((d) => (d && (d.target !== id || d.side !== side) ? { ...d, target: id, side } : d));
-  }, []);
-  const onDrop = useCallback(
-    (e: DragEvent, id: PhotoId) => {
-      e.preventDefault();
-      if (drag && !drag.ids.includes(id)) {
-        store.moveTo(drag.ids, id, drag.side);
-        store.toast(drag.ids.length > 1 ? `${drag.ids.length} fotos reordenadas` : 'Orden manual guardado');
-      }
-      setDrag(null);
-    },
-    [drag, store],
-  );
-  const onDragEnd = useCallback(() => setDrag(null), []);
-
-  // Desplazamiento automático al arrastrar cerca de los bordes.
-  const onContainerDragOver = (e: DragEvent) => {
-    const el = scrollRef.current;
-    if (!el || !drag) return;
-    const r = el.getBoundingClientRect();
-    if (e.clientY < r.top + 70) el.scrollBy({ top: -24 });
-    else if (e.clientY > r.bottom - 70) el.scrollBy({ top: 24 });
-  };
+  const onDragEnd = useCallback(() => undefined, []);
 
   if (visible.length === 0 && sections.every((s) => s.photoIds.length === 0)) {
     return (
       <div className="grid-empty" ref={scrollRef}>
         <p>No hay fotos que coincidan con los filtros.</p>
-        <button className="btn" onClick={() => store.setFilter({ sector: null, cameraId: null, status: 'all', duplicatesOnly: false })}>
+        <button className="btn" onClick={() => store.setFilter({ folder: null, cameraId: null, status: 'all', duplicatesOnly: false })}>
           Quitar filtros
         </button>
       </div>
@@ -144,9 +130,8 @@ export function Grid() {
     <div
       className="grid-scroll"
       ref={scrollRef}
-      onDragOver={onContainerDragOver}
       role="grid"
-      aria-label="Fotos ordenadas por fecha de captura"
+      aria-label="Fotos por carpeta de origen, ordenadas por fecha de captura"
       aria-rowcount={rows.length}
       aria-colcount={columns}
     >
@@ -154,23 +139,15 @@ export function Grid() {
         {virtualizer.getVirtualItems().map((v) => {
           const row = rows[v.index]!;
           if (row.kind === 'header') {
-            const c = counts.bySector.get(row.sector);
-            const manual = ordered.sectors.find((s) => s.name === row.sector)?.hasManualOrder;
+            const c = folderCounts.bySector.get(row.sector);
             return (
               <div key={v.key} className="grid-header" role="row" style={{ transform: `translateY(${v.start}px)`, height: HEADER_H }}>
                 <h2>{row.sector}</h2>
                 <span className="muted">
-                  <strong className="text-marked">{c?.marked ?? 0} marcadas</strong> · {c?.total ?? 0} fotos
+                  {c?.total ?? 0} fotos · <strong className="text-marked">{c?.marked ?? 0} marcadas</strong>
+                  {c?.discarded ? ` · ${c.discarded} descartadas` : ''}
                   {filter.status !== 'all' || filter.cameraId !== null || filter.duplicatesOnly ? ` · ${row.shown} visibles` : ''}
                 </span>
-                {manual && (
-                  <span className="grid-header-manual">
-                    Orden manual ·{' '}
-                    <button className="link" onClick={() => store.resetOrder(row.sector)}>
-                      volver a orden por fecha
-                    </button>
-                  </span>
-                )}
               </div>
             );
           }
@@ -194,12 +171,12 @@ export function Grid() {
                     duplicate={dupIds.has(id)}
                     time={ordered.timeById.get(id)}
                     size={tileSize}
-                    dropSide={drag?.target === id ? drag.side : null}
+                    sector={ordered.sectorById.get(id)}
+                    sectorNames={sectorNames}
+                    onChoose={onChoose}
                     onClick={onClick}
                     onDoubleClick={onDoubleClick}
                     onDragStart={onDragStart}
-                    onDragOver={onDragOver}
-                    onDrop={onDrop}
                     onDragEnd={onDragEnd}
                   />
                 );

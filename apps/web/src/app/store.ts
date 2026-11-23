@@ -16,6 +16,7 @@ import {
   exactDuplicateGroups,
   extensionOf,
   fileCacheKey,
+  markForSector,
   moveInSector,
   nudgeInSector,
   orderLibrary,
@@ -84,7 +85,11 @@ export interface SessionState {
   tileSize: number;
   columns: number;
   duplicates: DuplicateState;
-  dialog: null | 'help' | 'cameras' | 'export';
+  dialog: null | 'help' | 'cameras' | 'export' | 'new-sector';
+  /** Fotos que esperan el nombre del sector nuevo (diálogo «Nuevo sector»). */
+  pendingAssign: readonly PhotoId[];
+  /** Sectores abiertos en una ventana aparte. */
+  sectorWindows: readonly string[];
   toasts: Toast[];
   demo: boolean;
   error: string | null;
@@ -111,6 +116,8 @@ const initialState = (): SessionState => ({
   columns: 1,
   duplicates: { status: 'idle', checked: 0, total: 0, groups: [], ids: new Set() },
   dialog: null,
+  pendingAssign: [],
+  sectorWindows: [],
   toasts: [],
   demo: false,
   error: null,
@@ -396,6 +403,58 @@ export class SessionStore {
     this.apply(addSector(this.library, name));
   }
 
+  private photosOf(ids: readonly PhotoId[]): Photo[] {
+    return ids.map((id) => this.state.byId.get(id)).filter((p): p is Photo => !!p);
+  }
+
+  /** Fotos sobre las que actúa la lista desplegable de una miniatura: toda la selección si la incluye. */
+  targetsFor(id: PhotoId): PhotoId[] {
+    const { selection } = this.state;
+    return selection.size > 1 && selection.has(id) ? [...selection] : [id];
+  }
+
+  /** Marca para publicar en un sector (asignación + marca en un paso). */
+  markForSector(sector: string, ids: readonly PhotoId[] = this.targets().map((p) => p.id), next?: PhotoId | null): void {
+    const photos = this.photosOf(ids);
+    if (!photos.length || !sector.trim()) return;
+    this.apply(markForSector(this.library, photos, sector.trim()));
+    if (photos.length > 1) this.toast(`${photos.length} fotos marcadas para «${sector}»`, 'success');
+    if (next) this.focus(next);
+  }
+
+  /** Elección desde la lista desplegable: sector, pendiente o descartada. */
+  choose(ids: readonly PhotoId[], choice: { sector: string } | 'pending' | 'discarded'): void {
+    if (typeof choice === 'object') return this.markForSector(choice.sector, ids);
+    this.apply(setStatus(this.library, this.photosOf(ids), choice));
+  }
+
+  /** Abre el diálogo para crear un sector y asignarle `ids` al confirmar. */
+  askNewSector(ids: readonly PhotoId[]): void {
+    this.set({ dialog: 'new-sector', pendingAssign: ids });
+  }
+
+  createSectorAndAssign(name: string): void {
+    const clean = name.trim();
+    const ids = this.state.pendingAssign;
+    this.set({ dialog: null, pendingAssign: [] });
+    if (!clean) return;
+    if (ids.length) this.markForSector(clean, ids);
+    else this.addSector(clean);
+  }
+
+  /** Quita fotos de la selección de su sector (vuelven a pendiente). */
+  unmark(ids: readonly PhotoId[]): void {
+    this.apply(setStatus(this.library, this.photosOf(ids), 'pending'));
+  }
+
+  openSectorWindow(sector: string): void {
+    if (!this.state.sectorWindows.includes(sector)) this.set({ sectorWindows: [...this.state.sectorWindows, sector] });
+  }
+
+  closeSectorWindow(sector: string): void {
+    this.set({ sectorWindows: this.state.sectorWindows.filter((s) => s !== sector) });
+  }
+
   private sectorOrder(library: LibraryState, sector: string): readonly PhotoId[] {
     return orderLibrary(this.state.photos, library, this.state.cameras).sectors.find((s) => s.name === sector)?.photoIds ?? [];
   }
@@ -414,8 +473,7 @@ export class SessionStore {
     this.apply(lib);
   }
 
-  nudge(delta: -1 | 1): void {
-    const ids = this.targets().map((p) => p.id);
+  nudge(delta: -1 | 1, ids: readonly PhotoId[] = this.targets().map((p) => p.id)): void {
     if (!ids.length) return;
     const order = orderLibrary(this.state.photos, this.library, this.state.cameras);
     const sector = order.sectorById.get(ids[0]!);

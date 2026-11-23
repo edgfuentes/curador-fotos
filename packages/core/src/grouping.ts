@@ -1,18 +1,20 @@
 import { UNKNOWN_CAMERA_ID } from './capture';
 import { statusOf } from './curation';
-import type { OrderedLibrary } from './ordering';
+import type { OrderedLibrary, PhotoGroup } from './ordering';
 import type { CurationStatus, LibraryState, Photo, PhotoId } from './model';
 
 export interface PhotoFilter {
   /** null = todos los sectores. */
   readonly sector: string | null;
+  /** null = todas las carpetas de origen. */
+  readonly folder: string | null;
   /** null = todas las cámaras. UNKNOWN_CAMERA_ID = fotos sin datos de cámara. */
   readonly cameraId: string | null;
   readonly status: CurationStatus | 'all';
   readonly duplicatesOnly: boolean;
 }
 
-export const DEFAULT_FILTER: PhotoFilter = { sector: null, cameraId: null, status: 'all', duplicatesOnly: false };
+export const DEFAULT_FILTER: PhotoFilter = { sector: null, folder: null, cameraId: null, status: 'all', duplicatesOnly: false };
 
 export function cameraIdOf(photo: Photo): string {
   return photo.camera?.id ?? UNKNOWN_CAMERA_ID;
@@ -23,17 +25,17 @@ export interface FilteredSection {
   readonly photoIds: readonly PhotoId[];
 }
 
-/** Aplica el filtro manteniendo el orden final y la agrupación por sector. */
-export function filterOrdered(
-  ordered: OrderedLibrary,
+function filterGroups(
+  groups: readonly PhotoGroup[],
+  only: string | null,
   byId: ReadonlyMap<PhotoId, Photo>,
   library: LibraryState,
   filter: PhotoFilter,
   duplicates?: ReadonlySet<PhotoId>,
 ): FilteredSection[] {
   const out: FilteredSection[] = [];
-  for (const group of ordered.sectors) {
-    if (filter.sector !== null && group.name !== filter.sector) continue;
+  for (const group of groups) {
+    if (only !== null && group.name !== only) continue;
     const ids = group.photoIds.filter((id) => {
       const p = byId.get(id);
       if (!p) return false;
@@ -42,9 +44,31 @@ export function filterOrdered(
       if (filter.duplicatesOnly && !duplicates?.has(id)) return false;
       return true;
     });
-    if (ids.length > 0 || filter.sector === group.name) out.push({ sector: group.name, photoIds: ids });
+    if (ids.length > 0 || only === group.name) out.push({ sector: group.name, photoIds: ids });
   }
   return out;
+}
+
+/** Aplica el filtro manteniendo el orden final y la agrupación por sector. */
+export function filterOrdered(
+  ordered: OrderedLibrary,
+  byId: ReadonlyMap<PhotoId, Photo>,
+  library: LibraryState,
+  filter: PhotoFilter,
+  duplicates?: ReadonlySet<PhotoId>,
+): FilteredSection[] {
+  return filterGroups(ordered.sectors, filter.sector, byId, library, filter, duplicates);
+}
+
+/** Aplica el filtro sobre los grupos por carpeta de origen (`filter.folder`). */
+export function filterBySource(
+  groups: readonly PhotoGroup[],
+  byId: ReadonlyMap<PhotoId, Photo>,
+  library: LibraryState,
+  filter: PhotoFilter,
+  duplicates?: ReadonlySet<PhotoId>,
+): FilteredSection[] {
+  return filterGroups(groups, filter.folder, byId, library, filter, duplicates);
 }
 
 export interface StatusCounts {
@@ -61,9 +85,17 @@ export function countBySector(
   ordered: OrderedLibrary,
   library: LibraryState,
 ): { bySector: Map<string, StatusCounts>; total: StatusCounts } {
+  return countGroups(ordered.sectors, library);
+}
+
+/** Contadores por grupo (sector o carpeta) y totales. */
+export function countGroups(
+  groups: readonly PhotoGroup[],
+  library: LibraryState,
+): { bySector: Map<string, StatusCounts>; total: StatusCounts } {
   const bySector = new Map<string, StatusCounts>();
   const total = emptyCounts();
-  for (const g of ordered.sectors) {
+  for (const g of groups) {
     const c = emptyCounts();
     for (const id of g.photoIds) {
       const s = statusOf(library, id);

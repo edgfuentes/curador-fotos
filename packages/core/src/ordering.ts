@@ -81,9 +81,13 @@ export function mergeManualOrder(
   return out;
 }
 
-export interface SectorGroup {
+/** Grupo con nombre y fotos en orden. */
+export interface PhotoGroup {
   readonly name: string;
   readonly photoIds: readonly PhotoId[];
+}
+
+export interface SectorGroup extends PhotoGroup {
   /** true si el sector tiene un orden manual guardado. */
   readonly hasManualOrder: boolean;
 }
@@ -129,4 +133,28 @@ export function orderLibrary(
     };
   });
   return { sectors, flat: sectors.flatMap((s) => s.photoIds), sectorById, timeById };
+}
+
+/**
+ * Fotos agrupadas por su carpeta de origen (primera subcarpeta), cada grupo por hora de captura.
+ * No depende de las marcas ni del sector asignado: es la vista estable para curar,
+ * donde las fotos no cambian de lugar al asignarlas a un sector.
+ */
+export function groupBySource(
+  photos: readonly Photo[],
+  cameraSettings: Readonly<Record<string, CameraSettings>>,
+): PhotoGroup[] {
+  const byId = new Map<PhotoId, Photo>();
+  const timeById = new Map<PhotoId, number | undefined>();
+  const groups = new Map<string, PhotoId[]>();
+  for (const p of photos) {
+    byId.set(p.id, p);
+    timeById.set(p.id, effectiveCaptureMs(p, cameraSettings));
+    const name = folderSector(p);
+    let g = groups.get(name);
+    if (!g) groups.set(name, (g = []));
+    g.push(p.id);
+  }
+  const compare = makeAutoComparator(byId, (id) => timeById.get(id));
+  return [...groups.keys()].sort(compareSectors).map((name) => ({ name, photoIds: [...groups.get(name)!].sort(compare) }));
 }
