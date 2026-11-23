@@ -1,0 +1,28 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "curador-web",
+      "runtimeExecutable": "/Users/EF/Documents/curador-fotos/node_modules/.bin/vite",
+      "runtimeArgs": [
+        "/Users/EF/Documents/curador-fotos/apps/web",
+        "--port",
+        "5173",
+        "--strictPort"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "curador-preview",
+      "runtimeExecutable": "/Users/EF/Documents/curador-fotos/node_modules/.bin/vite",
+      "runtimeArgs": [
+        "preview",
+        "/Users/EF/Documents/curador-fotos/apps/web",
+        "--port",
+        "4173",
+        "--strictPort"
+      ],
+      "port": 4173
+    }
+  ]
+}
