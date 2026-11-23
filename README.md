@@ -117,7 +117,9 @@ La app es 100 % estática: la carpeta `apps/web/dist` se puede publicar en cualq
 
 1. Sube el repositorio a GitHub y deja el código en la rama `main`.
 2. En GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-3. Cada `push` a `main` ejecuta `.github/workflows/deploy.yml`, que corre los tipos, las pruebas y el build, y publica el sitio en `https://<usuario>.github.io/<repositorio>/`.
+3. Crea la variable de repositorio `DEPLOY_PAGES` con valor `true` (**Settings → Secrets and variables → Actions → Variables**). Sin ella, el workflow solo corre pruebas y build.
+   > Pages en un repositorio **privado** requiere GitHub Pro/Team. Con el plan gratis, haz el repo público o usa Netlify/Vercel (abajo).
+4. Cada `push` a `main` ejecuta `.github/workflows/deploy.yml`, que corre los tipos, las pruebas y el build, y publica el sitio en `https://<usuario>.github.io/<repositorio>/`.
 
 El workflow define `BASE_PATH=/<repositorio>/` para que las rutas, el manifest y el service worker funcionen en la subruta.
 

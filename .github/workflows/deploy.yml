@@ -31,13 +31,16 @@ jobs:
       - run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
+      # El despliegue solo corre si la variable de repositorio DEPLOY_PAGES vale "true"
+      # (Settings → Secrets and variables → Actions → Variables). GitHub Pages en
+      # repositorios privados requiere un plan de pago (Pro/Team).
       - uses: actions/upload-pages-artifact@v3
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && vars.DEPLOY_PAGES == 'true'
         with:
           path: apps/web/dist
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && vars.DEPLOY_PAGES == 'true'
     needs: build
     runs-on: ubuntu-latest
     environment:
