@@ -1,0 +1,10 @@
+{
+  "name": "@curador/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Modelos y reglas de negocio. Sin dependencias de interfaz ni de plataforma.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": { ".": "./src/index.ts" }
+}

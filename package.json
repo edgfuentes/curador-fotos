@@ -1,0 +1,28 @@
+{
+  "name": "curador-fotos",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "PWA local-first para curar y exportar fotografías sin pérdida de calidad.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "npm run dev -w @curador/web",
+    "build": "npm run build -w @curador/web",
+    "preview": "npm run preview -w @curador/web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p packages/core && tsc -p tsconfig.tests.json && tsc -p packages/adapters-node && tsc -p packages/adapters-web && tsc -p apps/web",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  }
+}

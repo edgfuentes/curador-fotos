@@ -1,0 +1,11 @@
+{
+  "name": "@curador/adapters-node",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Adaptadores de sistema de archivos para Node (pruebas de integración y base para una futura app de escritorio).",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@curador/core": "0.1.0" }
+}
