@@ -1,6 +1,6 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { NO_SECTOR, type Photo, type PhotoId } from '@curador/core';
+import { NO_SECTOR, type CurationStatus, type Photo, type PhotoId } from '@curador/core';
 import { useDerived, useSession, useStoreApi } from '../../app/context';
 import { usePreload } from '../../app/useView';
 import { MPhoto } from './MPhoto';
@@ -175,19 +175,22 @@ export function SectorButtons({
   );
 }
 
-function PhotoGrid({
+export function PhotoGrid({
   ids,
   byId,
   sel,
   sectorById,
   sectorNames,
+  statusOf,
   onTap,
 }: {
   ids: readonly PhotoId[];
   byId: ReadonlyMap<PhotoId, Photo>;
-  sel: ReadonlySet<PhotoId>;
-  sectorById: ReadonlyMap<PhotoId, string>;
-  sectorNames: readonly string[];
+  sel?: ReadonlySet<PhotoId>;
+  sectorById?: ReadonlyMap<PhotoId, string>;
+  sectorNames?: readonly string[];
+  /** Si se da, cada foto muestra si está aprobada o rechazada (en vez del sector y la casilla). */
+  statusOf?(id: PhotoId): CurationStatus;
   onTap(id: PhotoId): void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -228,14 +231,15 @@ function PhotoGrid({
             {ids.slice(row.index * cols, row.index * cols + cols).map((id) => {
               const p = byId.get(id);
               if (!p) return <span key={id} />;
-              const sector = sectorById.get(id) ?? NO_SECTOR;
+              const sector = sectorById?.get(id) ?? NO_SECTOR;
               return (
                 <GridTile
                   key={id}
                   photo={p}
-                  selected={sel.has(id)}
+                  selected={sel?.has(id) ?? false}
                   sector={sector === NO_SECTOR ? null : sector}
-                  sectorIndex={sectorNames.indexOf(sector)}
+                  sectorIndex={sectorNames?.indexOf(sector) ?? -1}
+                  status={statusOf?.(id)}
                   onTap={onTap}
                 />
               );
@@ -252,14 +256,27 @@ const GridTile = memo(function GridTile({
   selected,
   sector,
   sectorIndex,
+  status,
   onTap,
 }: {
   photo: Photo;
   selected: boolean;
   sector: string | null;
   sectorIndex: number;
+  status?: CurationStatus;
   onTap(id: PhotoId): void;
 }) {
+  if (status) {
+    const label = status === 'marked' ? 'aprobada' : status === 'discarded' ? 'rechazada' : 'por validar';
+    return (
+      <button className={`m-tile is-${status}`} onClick={() => onTap(photo.id)} aria-label={`${photo.fileName}, ${label}`}>
+        <MPhoto photo={photo} size="grid" />
+        <span className={`m-status-badge ${status}`} aria-hidden="true">
+          {status === 'marked' ? '✓' : status === 'discarded' ? '✕' : ''}
+        </span>
+      </button>
+    );
+  }
   return (
     <button
       className={`m-tile${selected ? ' is-selected' : ''}`}

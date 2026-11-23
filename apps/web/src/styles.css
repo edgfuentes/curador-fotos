@@ -2031,6 +2031,112 @@ html.is-mobile .btn-sm {
   color: var(--accent);
   font-weight: 600;
 }
+.m-vsector-change {
+  width: 100%;
+  margin-top: -1px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-top-style: dashed;
+  border-radius: 0 0 14px 14px;
+  background: var(--bg);
+  color: var(--accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+.m-vsector:has(.m-vsector-change) .m-vsector-btn {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.m-seg-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.m-review-hint {
+  margin: 0;
+}
+.m-status-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 13px;
+  border: 2px solid #fff;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.4);
+  background: rgb(0 0 0 / 0.25);
+}
+.m-status-badge.marked {
+  background: var(--marked);
+}
+.m-status-badge.discarded {
+  background: var(--discarded);
+}
+.m-tile.is-discarded .m-photo {
+  opacity: 0.6;
+}
+.m-decision {
+  grid-template-rows: auto 1fr auto auto auto auto;
+}
+.m-decision-pill {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--bg-sunk);
+  color: var(--fg-muted);
+}
+.m-decision-pill.marked {
+  background: var(--marked-bg);
+  color: var(--marked);
+}
+.m-decision-pill.discarded {
+  background: var(--discarded-bg);
+  color: var(--discarded);
+}
+.m-decision-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.m-decision-btn {
+  min-height: 54px;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+  background: var(--bg);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  touch-action: manipulation;
+}
+.m-decision-btn.ok {
+  color: var(--marked);
+  border-color: var(--marked);
+}
+.m-decision-btn.no {
+  color: var(--discarded);
+  border-color: var(--discarded);
+}
+.m-decision-btn.ok.on {
+  background: var(--marked);
+  color: #fff;
+}
+.m-decision-btn.no.on {
+  background: var(--discarded);
+  color: #fff;
+}
+.m-decision-btn:active {
+  transform: scale(0.97);
+}
+.m-decision-reset {
+  justify-self: center;
+  font-size: 14px;
+}
 .m-deck {
   height: 100%;
   display: grid;

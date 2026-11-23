@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
 import { statusOf, type CurationStatus, type PhotoId } from '@curador/core';
 import { useDerived, useSession, useStoreApi } from '../../app/context';
 import { usePreload } from '../../app/useView';
 import { MPhoto } from './MPhoto';
+import { PhotoGrid } from './MobileClassify';
 
 /** Distancia (px) a partir de la cual soltar la tarjeta cuenta como decisión. */
 const THRESHOLD = 90;
@@ -16,6 +17,7 @@ export function MobileValidate({ onDone }: { onDone(): void }) {
     sector: string;
     ids: readonly PhotoId[];
   } | null>(null);
+  const [review, setReview] = useState<string | null>(null);
 
   const start = (sector: string, all: boolean) => {
     const ids = ordered.sectors.find((s) => s.name === sector)?.photoIds ?? [];
@@ -23,6 +25,10 @@ export function MobileValidate({ onDone }: { onDone(): void }) {
     if (!list.length) return store.toast('Este sector no tiene fotos por validar.');
     setDeck({ sector, ids: list });
   };
+
+  if (review) {
+    return <SectorReview sector={review} onClose={() => setReview(null)} />;
+  }
 
   if (deck) {
     const nextSector = sectorNames.find((n) => n !== deck.sector && (counts.bySector.get(n)?.pending ?? 0) > 0) ?? null;
@@ -35,6 +41,10 @@ export function MobileValidate({ onDone }: { onDone(): void }) {
         nextSector={nextSector}
         onNextSector={() => nextSector && start(nextSector, false)}
         onSave={onDone}
+        onReview={() => {
+          setDeck(null);
+          setReview(deck.sector);
+        }}
       />
     );
   }
@@ -80,6 +90,11 @@ export function MobileValidate({ onDone }: { onDone(): void }) {
                   </span>
                   <span className="m-vsector-cta">{c.pending ? 'Validar ▶' : 'Revisar de nuevo'}</span>
                 </button>
+                {done > 0 && (
+                  <button className="m-vsector-change" onClick={() => setReview(name)}>
+                    Ver y cambiar decisiones ({done})
+                  </button>
+                )}
               </li>
             );
           })}
@@ -101,6 +116,7 @@ function SwipeDeck({
   nextSector,
   onNextSector,
   onSave,
+  onReview,
 }: {
   sector: string;
   ids: readonly PhotoId[];
@@ -108,6 +124,7 @@ function SwipeDeck({
   nextSector: string | null;
   onNextSector(): void;
   onSave(): void;
+  onReview(): void;
 }) {
   const store = useStoreApi();
   const byId = useSession((s) => s.byId);
@@ -225,6 +242,9 @@ function SwipeDeck({
               Guardar aprobadas ▶
             </button>
           )}
+          <button className="btn" onClick={onReview}>
+            Ver y cambiar decisiones
+          </button>
           <button className="btn" onClick={back} disabled={!decided.length}>
             ↶ Deshacer la última
           </button>
@@ -298,6 +318,163 @@ function SwipeDeck({
           ✓
         </button>
       </div>
+    </div>
+  );
+}
+
+type ReviewFilter = 'marked' | 'discarded' | 'all';
+
+/** Fotos ya validadas de un sector: tocar una la abre para cambiar la decisión. */
+function SectorReview({ sector, onClose }: { sector: string; onClose(): void }) {
+  const { ordered, counts } = useDerived();
+  const library = useSession((s) => s.history.present);
+  const byId = useSession((s) => s.byId);
+  const c = counts.bySector.get(sector);
+  const [filter, setFilter] = useState<ReviewFilter>(() => (c?.marked ? 'marked' : c?.discarded ? 'discarded' : 'all'));
+  const [open, setOpen] = useState<{ ids: readonly PhotoId[]; index: number } | null>(null);
+
+  const all = useMemo(() => ordered.sectors.find((s) => s.name === sector)?.photoIds ?? [], [ordered, sector]);
+  const ids = useMemo(() => (filter === 'all' ? all : all.filter((id) => statusOf(library, id) === filter)), [all, filter, library]);
+
+  if (open) return <DecisionOne ids={open.ids} start={open.index} onClose={() => setOpen(null)} />;
+
+  const seg: [ReviewFilter, string][] = [
+    ['marked', `Aprobadas (${c?.marked ?? 0})`],
+    ['discarded', `Rechazadas (${c?.discarded ?? 0})`],
+    ['all', `Todas (${c?.total ?? 0})`],
+  ];
+  return (
+    <div className="m-classify">
+      <div className="m-bar">
+        <div className="m-deck-head">
+          <button className="btn btn-sm" onClick={onClose}>
+            ‹ Sectores
+          </button>
+          <span className="m-deck-title ellipsis">
+            <strong>{sector}</strong>
+          </span>
+        </div>
+        <div className="m-seg m-seg-3" role="group" aria-label="Mostrar">
+          {seg.map(([value, label]) => (
+            <button key={value} className={filter === value ? 'on' : ''} onClick={() => setFilter(value)} aria-pressed={filter === value}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="small muted m-review-hint">Toca una foto para abrirla y cambiar su decisión.</p>
+      </div>
+      {ids.length ? (
+        <PhotoGrid
+          ids={ids}
+          byId={byId}
+          statusOf={(id) => statusOf(library, id)}
+          onTap={(id) => setOpen({ ids, index: Math.max(0, ids.indexOf(id)) })}
+        />
+      ) : (
+        <div className="m-empty">
+          <p className="muted">
+            {filter === 'marked' ? 'No hay fotos aprobadas en este sector.' : 'No hay fotos rechazadas en este sector.'}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Una foto abierta: muestra su decisión y deja cambiarla (aprobada ↔ rechazada). Deslizar cambia de foto. */
+function DecisionOne({ ids, start, onClose }: { ids: readonly PhotoId[]; start: number; onClose(): void }) {
+  const store = useStoreApi();
+  const byId = useSession((s) => s.byId);
+  const library = useSession((s) => s.history.present);
+  const [index, setIndex] = useState(start);
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const id = ids[index];
+  const photo = id ? byId.get(id) : undefined;
+  usePreload([byId.get(ids[index + 1] ?? ''), byId.get(ids[index - 1] ?? '')], 'preview');
+
+  const go = (d: number) => {
+    const n = index + d;
+    if (n >= 0 && n < ids.length) setIndex(n);
+  };
+
+  const set = (status: CurationStatus) => {
+    if (!id || statusOf(library, id) === status) return;
+    store.validate(status, [id]);
+    store.toast(
+      status === 'marked' ? 'Ahora está aprobada' : status === 'discarded' ? 'Ahora está rechazada' : 'Vuelve a «por validar»',
+      'success',
+    );
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') go(1);
+      else if (e.key === 'ArrowLeft') go(-1);
+      else if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  const onDown = (e: PointerEvent) => {
+    swipe.current = { x: e.clientX, y: e.clientY };
+  };
+  const onUp = (e: PointerEvent) => {
+    const s = swipe.current;
+    swipe.current = null;
+    if (!s) return;
+    const dx = e.clientX - s.x;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(e.clientY - s.y)) go(dx < 0 ? 1 : -1);
+  };
+
+  if (!photo || !id) return null;
+  const current = statusOf(library, id);
+  return (
+    <div className="m-one m-decision">
+      <div className="m-one-head">
+        <button className="btn btn-sm" onClick={onClose}>
+          ‹ Volver
+        </button>
+        <span className="muted small">
+          {index + 1} de {ids.length}
+        </span>
+        <span className={`m-decision-pill ${current}`}>
+          {current === 'marked' ? '✓ Aprobada' : current === 'discarded' ? '✕ Rechazada' : 'Por validar'}
+        </span>
+      </div>
+      <div className="m-one-photo" onPointerDown={onDown} onPointerUp={onUp} onPointerCancel={() => (swipe.current = null)}>
+        <MPhoto key={id} photo={photo} size="preview" priority={10} />
+      </div>
+      <p className="m-one-name ellipsis muted small">{photo.fileName} · desliza para cambiar de foto</p>
+      <div className="m-decision-btns">
+        <button
+          className={`m-decision-btn no${current === 'discarded' ? ' on' : ''}`}
+          onClick={() => set('discarded')}
+          aria-pressed={current === 'discarded'}
+        >
+          ✕ {current === 'discarded' ? 'Rechazada' : 'Rechazar'}
+        </button>
+        <button
+          className={`m-decision-btn ok${current === 'marked' ? ' on' : ''}`}
+          onClick={() => set('marked')}
+          aria-pressed={current === 'marked'}
+        >
+          ✓ {current === 'marked' ? 'Aprobada' : 'Aprobar'}
+        </button>
+      </div>
+      <div className="m-one-nav">
+        <button className="btn" onClick={() => go(-1)} disabled={index === 0}>
+          ‹ Anterior
+        </button>
+        <button className="btn" onClick={() => go(1)} disabled={index >= ids.length - 1}>
+          Siguiente ›
+        </button>
+      </div>
+      {current !== 'pending' && (
+        <button className="link m-decision-reset" onClick={() => set('pending')}>
+          Dejar por validar
+        </button>
+      )}
     </div>
   );
 }

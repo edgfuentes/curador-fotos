@@ -91,7 +91,7 @@ Abre la misma dirección en **Safari**. Para usarla como app: *Compartir → Agr
 1. **Clasificar.** Escribe el nombre de la carrera y toca *Elegir fotos de la carrera…*. Las fotos se copian dentro de la app sin recomprimir; la fototeca no se toca. Para clasificar puedes:
    - seleccionar varias fotos y tocar su sector;
    - ir *una por una*: tocas el sector y pasa sola a la siguiente.
-2. **Validar.** Elige un sector y desliza cada foto: a la **derecha la apruebas** y a la **izquierda la rechazas**. ↶ deshace la última decisión.
+2. **Validar.** Elige un sector y desliza cada foto: a la **derecha la apruebas** y a la **izquierda la rechazas**. ↶ deshace la última decisión. Para cambiar una decisión, toca **Ver y cambiar decisiones** en el sector, abre la foto y elige **Aprobar** o **Rechazar**.
 3. **Guardar.** Todas las aprobadas se comparten juntas, en un solo envío, numeradas en el orden de los sectores (`001_Entrada_IMG_1234.JPG`…).
    - **Álbum nuevo:** Safari no permite que una página web cree álbumes. Lo hace un Atajo de iOS, «Guardar en álbum nuevo», que se crea una sola vez (la app explica los pasos). Aparece en el menú de compartir, pide el nombre del álbum y guarda ahí todas las fotos.
    - *Guardar en Archivos* las deja en una carpeta para subir a la web.
