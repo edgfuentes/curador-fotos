@@ -48,6 +48,9 @@ export function MobileValidate({ onDone }: { onDone(): void }) {
         Elige un sector. Desliza la foto a la <strong className="text-marked">derecha para aprobarla</strong> o a la{' '}
         <strong className="text-discarded">izquierda para rechazarla</strong>.
       </p>
+      <button className="link m-edit-link" onClick={() => store.setDialog('sectors')}>
+        ✎ Corregir nombres de sectores
+      </button>
       {unclassified > 0 && (
         <p className="m-note">
           Quedan <strong>{unclassified}</strong> fotos sin sector: no se pueden validar hasta clasificarlas.

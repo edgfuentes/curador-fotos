@@ -92,11 +92,11 @@ Abre la misma dirección en **Safari**. Para usarla como app: *Compartir → Agr
    - seleccionar varias fotos y tocar su sector;
    - ir *una por una*: tocas el sector y pasa sola a la siguiente.
 2. **Validar.** Elige un sector y desliza cada foto: a la **derecha la apruebas** y a la **izquierda la rechazas**. ↶ deshace la última decisión.
-3. **Guardar.** Las aprobadas se comparten sector por sector, en grupos de 30, numeradas 001_, 002_…
-   - *Guardar N imágenes* las deja en Fotos. Desde ahí, *Añadir a álbum → Nuevo álbum*.
+3. **Guardar.** Todas las aprobadas se comparten juntas, en un solo envío, numeradas en el orden de los sectores (`001_Entrada_IMG_1234.JPG`…).
+   - **Álbum nuevo:** Safari no permite que una página web cree álbumes. Lo hace un Atajo de iOS, «Guardar en álbum nuevo», que se crea una sola vez (la app explica los pasos). Aparece en el menú de compartir, pide el nombre del álbum y guarda ahí todas las fotos.
    - *Guardar en Archivos* las deja en una carpeta para subir a la web.
 
-Safari no permite que una página web cree álbumes en Fotos, así que el álbum se arma con esos dos toques. *Mis carreras* permite agregar más fotos a una carrera o borrarla para liberar espacio.
+El nombre de un sector se corrige con **✎ Editar**, también en la versión de escritorio. Las fotos y sus validaciones no cambian. *Mis carreras* permite agregar más fotos a una carrera o borrarla para liberar espacio.
 
 ### Formatos
 

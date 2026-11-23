@@ -1,5 +1,5 @@
 import { naturalCompare } from './files';
-import { folderSector, ROOT_FOLDER } from './ordering';
+import { folderSector, NO_SECTOR, ROOT_FOLDER } from './ordering';
 import type { CurationRecord, CurationStatus, LibraryState, Photo, PhotoId } from './model';
 
 export function statusOf(library: LibraryState, id: PhotoId): CurationStatus {
@@ -128,6 +128,27 @@ export function withSectors(library: LibraryState, list: readonly string[]): Lib
   const merged = [...list, ...library.extraSectors.filter((s) => !list.includes(s))];
   if (merged.length === library.extraSectors.length && merged.every((s, i) => s === library.extraSectors[i])) return library;
   return { ...library, extraSectors: merged };
+}
+
+/**
+ * Cambia el nombre de un sector (p. ej. para corregir un error al escribirlo).
+ * Las fotos conservan su validación y su orden manual: es el mismo sector.
+ * Devuelve la misma biblioteca si el nombre nuevo está vacío o ya existe.
+ */
+export function renameSector(library: LibraryState, from: string, to: string): LibraryState {
+  const name = to.trim();
+  if (!name || name === from || from === NO_SECTOR || name === NO_SECTOR) return library;
+  if (!library.extraSectors.includes(from) || library.extraSectors.includes(name)) return library;
+  const records: Record<PhotoId, CurationRecord> = {};
+  for (const [id, r] of Object.entries(library.records)) records[id] = r.sector === from ? { ...r, sector: name } : r;
+  const manualOrder: Record<string, readonly PhotoId[]> = {};
+  for (const [k, v] of Object.entries(library.manualOrder)) manualOrder[k === from ? name : k] = v;
+  return {
+    ...library,
+    records,
+    manualOrder,
+    extraSectors: library.extraSectors.map((s) => (s === from ? name : s)),
+  };
 }
 
 export function addSector(library: LibraryState, name: string): LibraryState {

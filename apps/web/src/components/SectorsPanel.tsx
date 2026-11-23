@@ -71,6 +71,9 @@ export function SectorsPanel() {
           Pasar a validar ▶
         </button>
       )}
+      <button className="link" onClick={() => store.setDialog('sectors')}>
+        ✎ Corregir nombres de sectores
+      </button>
       <form
         className="row sectors-new"
         onSubmit={(e) => {

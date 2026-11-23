@@ -31,6 +31,7 @@ import {
   toggleStatus,
   undo,
   addSector,
+  renameSector,
   type CameraSettings,
   type CurationStatus,
   type History,
@@ -94,7 +95,7 @@ export interface SessionState {
   tileSize: number;
   columns: number;
   duplicates: DuplicateState;
-  dialog: null | 'help' | 'cameras' | 'export' | 'new-sector';
+  dialog: null | 'help' | 'cameras' | 'export' | 'new-sector' | 'sectors';
   /** Fotos que esperan el nombre del sector nuevo (diálogo «Nuevo sector»). */
   pendingAssign: readonly PhotoId[];
   /** Sectores abiertos en una ventana aparte. */
@@ -418,6 +419,32 @@ export class SessionStore {
       const base = list ?? [...DEFAULT_SECTORS];
       if (!base.includes(clean)) void this.services.storage.savePreference('sectors', [...base, clean]);
     });
+  }
+
+  /** Corrige el nombre de un sector. Devuelve un mensaje de error, o null si se cambió. */
+  renameSector(from: string, to: string): string | null {
+    const name = to.trim();
+    if (!name) return 'Escribe un nombre.';
+    if (name === from) return null;
+    if (name === NO_SECTOR) return `«${NO_SECTOR}» está reservado.`;
+    if (this.library.extraSectors.includes(name)) return `Ya existe un sector «${name}».`;
+    const next = renameSector(this.library, from, name);
+    if (next === this.library) return 'No se pudo cambiar el nombre.';
+    this.apply(next);
+    const { validateSector, filter, sectorWindows } = this.state;
+    this.set({
+      ...(validateSector === from ? { validateSector: name } : {}),
+      ...(filter.sector === from ? { filter: { ...filter, sector: name } } : {}),
+      ...(sectorWindows.includes(from) ? { sectorWindows: sectorWindows.map((s) => (s === from ? name : s)) } : {}),
+    });
+    // La lista recordada para las próximas carreras también se corrige.
+    void this.services.storage.loadPreference<string[]>('sectors').then((list) => {
+      const base = list ?? [...DEFAULT_SECTORS];
+      const fixed = base.includes(from) ? base.map((s) => (s === from ? name : s)) : base;
+      void this.services.storage.savePreference('sectors', fixed.filter((s, i) => fixed.indexOf(s) === i));
+    });
+    this.toast(`Sector renombrado: «${from}» → «${name}»`, 'success');
+    return null;
   }
 
   private photosOf(ids: readonly PhotoId[]): Photo[] {

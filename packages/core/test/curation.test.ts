@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  renameSector,
+  addSector,
   assignSector,
   commit,
   countBySector,
@@ -175,6 +177,23 @@ describe('reconciliación de marcas y duplicados', () => {
 });
 
 describe('flujo: clasificar → validar', () => {
+  it('renombrar un sector conserva fotos, validación y orden manual', () => {
+    const x = makePhoto('X/IMG_1.jpg', { time: '2024:05:01 10:00:00' });
+    const y = makePhoto('X/IMG_2.jpg', { time: '2024:05:01 11:00:00' });
+    let lib = classify(withSectors(emptyLibraryState(), DEFAULT_SECTORS), [x, y], 'Entrada');
+    lib = setStatus(lib, [x], 'marked');
+    lib = { ...lib, manualOrder: { Entrada: [y.id, x.id] } };
+    lib = addSector(lib, 'Bnda');
+    const renamed = renameSector(renameSector(lib, 'Entrada', ' Entradas '), 'Bnda', 'Banda (2)');
+    expect(renamed.extraSectors.slice(0, 2)).toEqual(['Entradas', 'Banda']);
+    expect(renamed.extraSectors).toContain('Banda (2)');
+    expect(renamed.records[x.id]).toMatchObject({ sector: 'Entradas', status: 'marked' });
+    expect(renamed.manualOrder).toEqual({ Entradas: [y.id, x.id] });
+    // Nombre vacío o ya usado: no cambia nada.
+    expect(renameSector(lib, 'Entrada', 'Banda')).toBe(lib);
+    expect(renameSector(lib, 'Entrada', '  ')).toBe(lib);
+  });
+
   const a1 = makePhoto('Fotógrafo A/IMG_1.jpg', { time: '2024:05:01 10:00:00' });
   const a2 = makePhoto('Fotógrafo A/IMG_2.jpg', { time: '2024:05:01 09:00:00' });
   const b1 = makePhoto('Fotógrafo B/DSC_1.jpg', { time: '2024:05:01 09:30:00' });

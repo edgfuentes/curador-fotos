@@ -2228,3 +2228,75 @@ html.is-mobile .btn-sm {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* ---------------------------------------------------------------- nombres de sectores */
+.sector-rename-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 16px;
+  display: grid;
+  gap: 8px;
+}
+.sector-rename {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sector-rename input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  font-size: 16px;
+}
+.sector-rename-count {
+  white-space: nowrap;
+}
+.sector-rename-error {
+  margin: 4px 0 0;
+  color: var(--discarded);
+  font-size: 13px;
+}
+.m-edit-link {
+  display: block;
+  margin: 0 0 12px auto;
+}
+.m-sector-edit {
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+.m-save-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  margin: 0 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-elev);
+  box-shadow: var(--shadow);
+}
+.m-save-total {
+  margin: 0;
+  font-size: 18px;
+}
+.m-save-sectors {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.m-save-sectors li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.m-save-hint {
+  margin: 0;
+  text-align: center;
+}
+.m-save code {
+  font-size: 12px;
+  word-break: break-all;
+}

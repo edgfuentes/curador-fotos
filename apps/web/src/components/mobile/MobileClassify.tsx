@@ -146,6 +146,7 @@ export function SectorButtons({
   showClear?: boolean;
   big?: boolean;
 }) {
+  const store = useStoreApi();
   return (
     <div className={`m-sectors${big ? ' big' : ''}`}>
       {sectorNames.map((name, i) => (
@@ -161,6 +162,9 @@ export function SectorButtons({
       ))}
       <button className="m-sector m-sector-new" onClick={onNew}>
         ＋ Nuevo
+      </button>
+      <button className="m-sector m-sector-edit" onClick={() => store.setDialog('sectors')} aria-label="Corregir nombres de sectores">
+        ✎ Editar
       </button>
       {showClear && (
         <button className="m-sector m-sector-clear" onClick={() => onPick(null)}>

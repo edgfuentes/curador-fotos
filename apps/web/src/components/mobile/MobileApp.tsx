@@ -4,6 +4,7 @@ import { isOpfsSupported } from '../../app/carreras';
 import { useDerived, useSession, useStoreApi } from '../../app/context';
 import { Logo } from '../Home';
 import { NewSectorDialog } from '../NewSectorDialog';
+import { SectorsDialog } from '../SectorsDialog';
 import { ScanProgress } from '../ScanProgress';
 import { UpdatePrompt } from '../UpdatePrompt';
 import { MobileClassify } from './MobileClassify';
@@ -37,6 +38,7 @@ export function MobileApp() {
         <MobileShell />
       )}
       {dialog === 'new-sector' && <NewSectorDialog />}
+      {dialog === 'sectors' && <SectorsDialog />}
       <div className="toasts m-toasts" role="status" aria-live="polite">
         {toasts.map((t) => (
           <div key={t.id} className={`toast toast-${t.tone}`}>

@@ -10,6 +10,7 @@ import { NewSectorDialog } from './components/NewSectorDialog';
 import { Review } from './components/Review';
 import { ScanProgress } from './components/ScanProgress';
 import { SectorsPanel } from './components/SectorsPanel';
+import { SectorsDialog } from './components/SectorsDialog';
 import { SectorWindows } from './components/SectorWindow';
 import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
@@ -69,6 +70,7 @@ function DesktopApp() {
       {dialog === 'cameras' && <CamerasDialog />}
       {dialog === 'export' && <ExportDialog />}
       {dialog === 'new-sector' && <NewSectorDialog />}
+      {dialog === 'sectors' && <SectorsDialog />}
       <div className="toasts" role="status" aria-live="polite">
         {toasts.map((t) => (
           <div key={t.id} className={`toast toast-${t.tone}`}>
