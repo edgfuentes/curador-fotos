@@ -8,6 +8,8 @@ import type { CameraSettings, LibraryState, Photo, PhotoMetadata } from './model
 /** Subconjunto de AbortSignal (compatible con navegador y Node) para no depender de la plataforma. */
 export interface CancelSignal {
   readonly aborted: boolean;
+  addEventListener?(type: 'abort', listener: () => void, options?: { once?: boolean }): void;
+  removeEventListener?(type: 'abort', listener: () => void): void;
 }
 
 export class CancelledError extends Error {
