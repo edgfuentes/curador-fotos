@@ -52,13 +52,37 @@ export function useShortcuts(store: SessionStore): void {
 
       const next = i >= 0 ? (visible[i + 1] ?? null) : null;
 
-      // 1–9: marcar para el sector con ese número (panel derecho).
-      if (/^[1-9]$/.test(key) && !e.altKey) {
-        const sector = derive(s).sectorNames[Number(key) - 1];
-        handled();
-        if (!sector) return store.toast(`No hay un sector ${key}. Créalo en el panel de sectores.`);
-        return store.markForSector(sector, undefined, inReview && s.autoAdvance ? next : null);
+      // Avance automático: en la cuadrícula solo si se actúa sobre una foto; a pantalla completa, según la preferencia.
+      const single = inReview || s.selection.size <= 1;
+      const advance = s.autoAdvance && single ? next : null;
+
+      if (s.stage === 'classify') {
+        // 1–9: clasificar en el sector con ese número. 0 o ⌫: quitar el sector.
+        if (/^[1-9]$/.test(key) && !e.altKey) {
+          const sector = derive(s).sectorNames[Number(key) - 1];
+          handled();
+          if (!sector) return store.toast(`No hay un sector ${key}. Créalo en el panel de sectores.`);
+          return store.classify(sector, undefined, advance);
+        }
+        if (key === '0' || key === 'Backspace' || key === 'Delete') {
+          handled();
+          return store.classify(null, undefined, advance);
+        }
+      } else {
+        // Validación: A/P aprueba, R/X rechaza, U deja por validar. Avanza a la siguiente por validar.
+        const lower = key.toLowerCase();
+        const status = lower === 'a' || lower === 'p' ? 'marked' : lower === 'r' || lower === 'x' ? 'discarded' : lower === 'u' ? 'pending' : null;
+        if (status) {
+          handled();
+          const lib = s.history.present;
+          const after = i >= 0 ? visible.slice(i + 1).find((id) => (lib.records[id]?.status ?? 'pending') === 'pending') : undefined;
+          const nextPending = status !== 'pending' && s.autoAdvance && single ? (after ?? next) : null;
+          store.validate(status, undefined, inReview ? nextPending : null);
+          if (inReview && status !== 'pending' && !after) store.toast('No quedan fotos por validar en esta vista.', 'success');
+          return;
+        }
       }
+
       switch (key) {
         case 'ArrowRight':
           handled();
@@ -103,18 +127,6 @@ export function useShortcuts(store: SessionStore): void {
             store.closeReview();
           }
           return;
-        case 'p':
-        case 'P':
-          handled();
-          return store.mark('marked', inReview && s.autoAdvance ? next : null);
-        case 'x':
-        case 'X':
-          handled();
-          return store.mark('discarded', inReview && s.autoAdvance ? next : null);
-        case 'u':
-        case 'U':
-          handled();
-          return store.resetStatus();
         case 'z':
         case 'Z':
           handled();

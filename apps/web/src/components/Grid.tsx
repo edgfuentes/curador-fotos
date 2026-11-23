@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { statusOf, type PhotoId } from '@curador/core';
+import { statusOf, type CurationStatus, type PhotoId } from '@curador/core';
 import { useDerived, useSession, useStoreApi } from '../app/context';
 import { Thumb } from './Thumb';
 import type { Choice } from './SectorSelect';
@@ -19,7 +19,8 @@ const CAPTION_H = 76;
 
 export function Grid() {
   const store = useStoreApi();
-  const { sections, visible, ordered, folderCounts, sectorNames } = useDerived();
+  const { sections, visible, ordered, folderStats, counts, sectorNames } = useDerived();
+  const stage = useSession((s) => s.stage);
   const tileSize = useSession((s) => s.tileSize);
   const byId = useSession((s) => s.byId);
   const library = useSession((s) => s.history.present);
@@ -101,6 +102,7 @@ export function Grid() {
     },
     [store],
   );
+  const onValidate = useCallback((id: PhotoId, status: CurationStatus) => store.validate(status, store.targetsFor(id)), [store]);
 
   // Arrastrar una o varias fotos hacia un sector del panel derecho.
   const onDragStart = useCallback(
@@ -119,7 +121,7 @@ export function Grid() {
     return (
       <div className="grid-empty" ref={scrollRef}>
         <p>No hay fotos que coincidan con los filtros.</p>
-        <button className="btn" onClick={() => store.setFilter({ folder: null, cameraId: null, status: 'all', duplicatesOnly: false })}>
+        <button className="btn" onClick={() => store.setFilter({ folder: null, sector: null, cameraId: null, status: 'all', duplicatesOnly: false })}>
           Quitar filtros
         </button>
       </div>
@@ -131,7 +133,7 @@ export function Grid() {
       className="grid-scroll"
       ref={scrollRef}
       role="grid"
-      aria-label="Fotos por carpeta de origen, ordenadas por fecha de captura"
+      aria-label={stage === 'classify' ? 'Fotos por carpeta de origen, ordenadas por fecha de captura' : 'Fotos por sector, en orden de exportación'}
       aria-rowcount={rows.length}
       aria-colcount={columns}
     >
@@ -139,15 +141,34 @@ export function Grid() {
         {virtualizer.getVirtualItems().map((v) => {
           const row = rows[v.index]!;
           if (row.kind === 'header') {
-            const c = folderCounts.bySector.get(row.sector);
+            const filtered = filter.status !== 'all' || filter.cameraId !== null || filter.duplicatesOnly || filter.sector !== null;
+            if (stage === 'classify') {
+              const f = folderStats.get(row.sector);
+              return (
+                <div key={v.key} className="grid-header" role="row" style={{ transform: `translateY(${v.start}px)`, height: HEADER_H }}>
+                  <h2>{row.sector}</h2>
+                  <span className="muted">
+                    {f?.total ?? 0} fotos · <strong className="text-classified">{f?.classified ?? 0} clasificadas</strong>
+                    {f && f.total > f.classified ? ` · ${f.total - f.classified} sin clasificar` : ''}
+                    {filtered ? ` · ${row.shown} visibles` : ''}
+                  </span>
+                </div>
+              );
+            }
+            const c = counts.bySector.get(row.sector);
             return (
               <div key={v.key} className="grid-header" role="row" style={{ transform: `translateY(${v.start}px)`, height: HEADER_H }}>
                 <h2>{row.sector}</h2>
                 <span className="muted">
-                  {c?.total ?? 0} fotos · <strong className="text-marked">{c?.marked ?? 0} marcadas</strong>
-                  {c?.discarded ? ` · ${c.discarded} descartadas` : ''}
-                  {filter.status !== 'all' || filter.cameraId !== null || filter.duplicatesOnly ? ` · ${row.shown} visibles` : ''}
+                  {c?.total ?? 0} fotos · <strong className="text-marked">{c?.marked ?? 0} aprobadas</strong> ·{' '}
+                  <span className="text-discarded">{c?.discarded ?? 0} rechazadas</span> · {c?.pending ?? 0} por validar
+                  {filtered ? ` · ${row.shown} visibles` : ''}
                 </span>
+                {(c?.pending ?? 0) > 0 && (
+                  <button className="btn btn-sm btn-primary grid-header-action" onClick={() => store.startValidation(row.sector)}>
+                    Validar a pantalla completa ▶
+                  </button>
+                )}
               </div>
             );
           }
@@ -171,12 +192,14 @@ export function Grid() {
                     duplicate={dupIds.has(id)}
                     time={ordered.timeById.get(id)}
                     size={tileSize}
+                    stage={stage}
                     sector={ordered.sectorById.get(id)}
                     sectorNames={sectorNames}
                     onChoose={onChoose}
+                    onValidate={onValidate}
                     onClick={onClick}
                     onDoubleClick={onDoubleClick}
-                    onDragStart={onDragStart}
+                    onDragStart={stage === 'classify' ? onDragStart : undefined}
                     onDragEnd={onDragEnd}
                   />
                 );

@@ -1,9 +1,10 @@
 import { memo, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
-import { formatWallClock, prefixWidth, statusOf, type Photo, type PhotoId } from '@curador/core';
+import { formatWallClock, prefixWidth, statusOf, type CurationStatus, type Photo, type PhotoId } from '@curador/core';
 import { useDerived, useSession, useStoreApi } from '../app/context';
 import { SectorWindowPortal } from '../app/popup';
 import { useView } from '../app/useView';
 import { SectorSelect, type Choice } from './SectorSelect';
+import { STATUS_LABEL } from './Thumb';
 
 /** Todas las ventanas de sector abiertas. */
 export function SectorWindows() {
@@ -22,8 +23,8 @@ function SectorWindowHost({ sector, store }: { sector: string; store: ReturnType
   const { ordered } = useDerived();
   const library = useSession((s) => s.history.present);
   const count = useMemo(
-    () => ordered.sectors.find((s) => s.name === sector)?.photoIds.filter((id) => statusOf(library, id) === 'marked').length ?? 0,
-    [ordered, library, sector],
+    () => ordered.sectors.find((s) => s.name === sector)?.photoIds.length ?? 0,
+    [ordered, sector],
   );
   return (
     <SectorWindowPortal store={store} sector={sector} title={`${sector} · ${count} fotos — Curador`}>
@@ -45,14 +46,17 @@ function SectorView({ sector }: { sector: string }) {
   const [drag, setDrag] = useState<{ id: PhotoId; target: PhotoId | null; side: 'before' | 'after' } | null>(null);
 
   const group = ordered.sectors.find((s) => s.name === sector);
-  const ids = useMemo(() => (group?.photoIds ?? []).filter((id) => statusOf(library, id) === 'marked'), [group, library]);
-  const width = prefixWidth(ids.length);
+  // Todas las fotos clasificadas en el sector (rechazadas incluidas) en el orden de exportación.
+  const ids = group?.photoIds ?? [];
+  const exported = useMemo(() => ids.filter((id) => statusOf(library, id) !== 'discarded'), [ids, library]);
+  const approved = useMemo(() => ids.filter((id) => statusOf(library, id) === 'marked').length, [ids, library]);
+  const width = prefixWidth(exported.length);
 
   const onChoose = (id: PhotoId, choice: Choice) => {
     if (choice !== 'new') return store.choose([id], choice);
     // El nombre se pide en esta misma ventana (la principal puede estar detrás).
     const name = rootRef.current?.ownerDocument.defaultView?.prompt('Nombre del sector nuevo')?.trim();
-    if (name) store.markForSector(name, [id]);
+    if (name) store.classify(name, [id]);
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
@@ -83,7 +87,7 @@ function SectorView({ sector }: { sector: string }) {
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
       const next = ids[i + 1] ?? ids[i - 1] ?? null;
-      store.unmark([focus]);
+      store.unclassify([focus]);
       setFocus(next);
     }
   };
@@ -100,8 +104,9 @@ function SectorView({ sector }: { sector: string }) {
         <div>
           <h1>{sector}</h1>
           <p className="muted">
-            <strong className="text-marked">{ids.length}</strong> {ids.length === 1 ? 'foto seleccionada' : 'fotos seleccionadas'} · orden
-            de exportación{group?.hasManualOrder ? ' (manual)' : ' (por hora de captura)'}
+            <strong>{ids.length}</strong> {ids.length === 1 ? 'foto clasificada' : 'fotos clasificadas'} ·{' '}
+            <strong className="text-marked">{approved} aprobadas</strong> · orden de exportación
+            {group?.hasManualOrder ? ' (manual)' : ' (por hora de captura)'}
           </p>
         </div>
         <div className="sector-window-actions">
@@ -122,24 +127,27 @@ function SectorView({ sector }: { sector: string }) {
         </div>
       </header>
       <p className="muted small sector-window-hint">
-        Arrastra para cambiar el orden · <kbd>⌥←</kbd> <kbd>⌥→</kbd> mueven la foto elegida · <kbd>⌫</kbd> la quita del sector · los cambios
-        se ven al instante en la ventana principal.
+        Arrastra para cambiar el orden · <kbd>⌥←</kbd> <kbd>⌥→</kbd> mueven la foto elegida · <kbd>⌫</kbd> la deja sin clasificar · los
+        cambios se ven al instante en la ventana principal. Solo se exportan las aprobadas.
       </p>
       {ids.length === 0 ? (
         <div className="sector-window-empty">
-          <p>Este sector todavía no tiene fotos marcadas.</p>
+          <p>Este sector todavía no tiene fotos.</p>
           <p className="muted small">En la ventana principal, elige «{sector}» en la lista bajo cada foto o arrástralas a su tarjeta.</p>
         </div>
       ) : (
         <ol className="sector-grid" aria-label={`Fotos de ${sector} en orden de exportación`}>
-          {ids.map((id, i) => {
+          {ids.map((id) => {
             const p = byId.get(id);
             if (!p) return null;
+            const n = exported.indexOf(id);
+            const st = statusOf(library, id);
             return (
               <SectorTile
                 key={id}
                 photo={p}
-                number={String(i + 1).padStart(width, '0')}
+                status={st}
+                number={n >= 0 ? String(n + 1).padStart(width, '0') : '—'}
                 time={ordered.timeById.get(id)}
                 focused={focus === id}
                 dropSide={drag?.target === id ? drag.side : null}
@@ -147,7 +155,7 @@ function SectorView({ sector }: { sector: string }) {
                 sectorNames={sectorNames}
                 onFocus={setFocus}
                 onChoose={onChoose}
-                onRemove={(pid) => store.unmark([pid])}
+                onRemove={(pid) => store.unclassify([pid])}
                 onDragStart={(pid) => setDrag({ id: pid, target: null, side: 'before' })}
                 onDragOver={(e, pid) => {
                   e.preventDefault();
@@ -168,6 +176,7 @@ function SectorView({ sector }: { sector: string }) {
 
 const SectorTile = memo(function SectorTile(p: {
   photo: Photo;
+  status: CurationStatus;
   number: string;
   time: number | undefined;
   focused: boolean;
@@ -186,7 +195,7 @@ const SectorTile = memo(function SectorTile(p: {
   const id = p.photo.id;
   return (
     <li
-      className={['stile', p.focused && 'is-focused', p.dropSide && `drop-${p.dropSide}`].filter(Boolean).join(' ')}
+      className={['stile', `is-${p.status}`, p.focused && 'is-focused', p.dropSide && `drop-${p.dropSide}`].filter(Boolean).join(' ')}
       data-id={id}
       draggable
       onDragStart={(e) => {
@@ -210,6 +219,11 @@ const SectorTile = memo(function SectorTile(p: {
             </span>
           )}
           <span className="stile-num">{p.number}</span>
+          {p.status !== 'pending' && (
+            <span className={`badge badge-${p.status}`} title={STATUS_LABEL[p.status]}>
+              {p.status === 'marked' ? '✓' : '✕'}
+            </span>
+          )}
         </span>
         <span className="tile-caption">
           <span className="tile-name" title={p.photo.relativePath}>
@@ -220,13 +234,12 @@ const SectorTile = memo(function SectorTile(p: {
       </button>
       <div className="stile-actions">
         <SectorSelect
-          status="marked"
           sector={p.sector}
           sectorNames={p.sectorNames}
           onChoose={(c) => p.onChoose(id, c)}
           label={`Mover ${p.photo.fileName} a otro sector`}
         />
-        <button className="btn btn-sm btn-ghost" onClick={() => p.onRemove(id)} title="Quitar del sector (vuelve a pendiente)" aria-label={`Quitar ${p.photo.fileName}`}>
+        <button className="btn btn-sm btn-ghost" onClick={() => p.onRemove(id)} title="Dejar sin clasificar" aria-label={`Quitar ${p.photo.fileName}`}>
           ✕
         </button>
       </div>

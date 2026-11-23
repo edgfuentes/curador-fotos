@@ -16,7 +16,10 @@ import {
   exactDuplicateGroups,
   extensionOf,
   fileCacheKey,
-  markForSector,
+  classify,
+  DEFAULT_SECTORS,
+  NO_SECTOR,
+  withSectors,
   moveInSector,
   nudgeInSector,
   orderLibrary,
@@ -40,8 +43,11 @@ import {
   type SourceDirectory,
   type StorageAdapter,
 } from '@curador/core';
+import { derive } from './context';
 
 export type Phase = 'home' | 'scanning' | 'ready';
+/** Etapas del flujo: 1 el fotógrafo clasifica por sector, 2 un validador aprueba o rechaza. (3 exportar es un diálogo.) */
+export type Stage = 'classify' | 'validate';
 
 export interface Toast {
   id: number;
@@ -66,6 +72,9 @@ export interface DuplicateState {
 
 export interface SessionState {
   phase: Phase;
+  stage: Stage;
+  /** Sector que se está validando (null = todos). */
+  validateSector: string | null;
   source: SourceDirectory | null;
   libraryId: string;
   scan: ScanProgress;
@@ -97,6 +106,8 @@ export interface SessionState {
 
 const initialState = (): SessionState => ({
   phase: 'home',
+  stage: 'classify',
+  validateSector: null,
   source: null,
   libraryId: '',
   scan: { step: 'files', found: 0, done: 0, total: 0 },
@@ -250,7 +261,10 @@ export class SessionStore {
 
       this.set({ scan: { step: 'library', found: photos.length, done: photos.length, total: photos.length } });
       const stored = (await this.services.storage.loadLibrary(source.name).catch(() => undefined)) ?? emptyLibraryState();
-      const { library, relinked } = reconcileRecords(stored, photos);
+      const reconciled = reconcileRecords(stored, photos);
+      const relinked = reconciled.relinked;
+      const sectorList = (await this.services.storage.loadPreference<string[]>('sectors').catch(() => undefined)) ?? [...DEFAULT_SECTORS];
+      const library = withSectors(reconciled.library, sectorList);
       const cameraList = await this.services.storage.loadCameraSettings().catch(() => [] as CameraSettings[]);
       const cameras = Object.fromEntries(cameraList.map((c) => [c.cameraId, c]));
       const first = orderLibrary(photos, library, cameras).flat[0] ?? null;
@@ -282,6 +296,7 @@ export class SessionStore {
     this.scanAbort?.abort();
     this.set({ ...initialState(), autoAdvance: this.state.autoAdvance, tileSize: this.state.tileSize });
   }
+
 
   /** Duplicados exactos: solo se hashean archivos que comparten tamaño. */
   private async detectDuplicates(): Promise<void> {
@@ -392,15 +407,17 @@ export class SessionStore {
     return statusOf(this.library, id);
   }
 
-  assignSector(sector: string | null): void {
-    const targets = this.targets();
-    if (!targets.length) return;
-    this.apply(assignSector(this.library, targets, sector));
-    this.toast(sector ? `${targets.length} foto(s) movidas a «${sector}»` : 'Sector restablecido según la carpeta');
-  }
+
 
   addSector(name: string): void {
-    this.apply(addSector(this.library, name));
+    const clean = name.trim();
+    if (!clean) return;
+    this.apply(addSector(this.library, clean));
+    // La lista de sectores se recuerda para las próximas carpetas.
+    void this.services.storage.loadPreference<string[]>('sectors').then((list) => {
+      const base = list ?? [...DEFAULT_SECTORS];
+      if (!base.includes(clean)) void this.services.storage.savePreference('sectors', [...base, clean]);
+    });
   }
 
   private photosOf(ids: readonly PhotoId[]): Photo[] {
@@ -413,22 +430,35 @@ export class SessionStore {
     return selection.size > 1 && selection.has(id) ? [...selection] : [id];
   }
 
-  /** Marca para publicar en un sector (asignación + marca en un paso). */
-  markForSector(sector: string, ids: readonly PhotoId[] = this.targets().map((p) => p.id), next?: PhotoId | null): void {
+  /** Etapa 1: asigna el sector (o lo quita con null). Cambiar de sector anula la validación anterior. */
+  classify(sector: string | null, ids: readonly PhotoId[] = this.targets().map((p) => p.id), next?: PhotoId | null): void {
     const photos = this.photosOf(ids);
-    if (!photos.length || !sector.trim()) return;
-    this.apply(markForSector(this.library, photos, sector.trim()));
-    if (photos.length > 1) this.toast(`${photos.length} fotos marcadas para «${sector}»`, 'success');
+    if (!photos.length) return;
+    const clean = sector?.trim() || null;
+    if (clean && !this.library.extraSectors.includes(clean)) this.addSector(clean);
+    this.apply(classify(this.library, photos, clean));
+    if (photos.length > 1) this.toast(clean ? `${photos.length} fotos clasificadas en «${clean}»` : `${photos.length} fotos sin clasificar`, 'success');
     if (next) this.focus(next);
   }
 
-  /** Elección desde la lista desplegable: sector, pendiente o descartada. */
-  choose(ids: readonly PhotoId[], choice: { sector: string } | 'pending' | 'discarded'): void {
-    if (typeof choice === 'object') return this.markForSector(choice.sector, ids);
-    this.apply(setStatus(this.library, this.photosOf(ids), choice));
+  /** Etapa 2: aprueba (marked), rechaza (discarded) o devuelve a «por validar» (pending). */
+  validate(status: CurationStatus, ids: readonly PhotoId[] = this.targets().map((p) => p.id), next?: PhotoId | null): void {
+    const photos = this.photosOf(ids).filter((p) => this.sectorOfId(p.id) !== NO_SECTOR);
+    if (!photos.length) return this.toast('Esta foto no tiene sector: clasifícala primero (etapa 1).');
+    this.apply(setStatus(this.library, photos, status));
+    if (next) this.focus(next);
   }
 
-  /** Abre el diálogo para crear un sector y asignarle `ids` al confirmar. */
+  private sectorOfId(id: PhotoId): string {
+    return this.library.records[id]?.sector ?? NO_SECTOR;
+  }
+
+  /** Elección desde la lista desplegable de sector. */
+  choose(ids: readonly PhotoId[], choice: { sector: string } | 'unclassified'): void {
+    this.classify(choice === 'unclassified' ? null : choice.sector, ids);
+  }
+
+  /** Abre el diálogo para crear un sector y clasificar en él `ids` al confirmar. */
   askNewSector(ids: readonly PhotoId[]): void {
     this.set({ dialog: 'new-sector', pendingAssign: ids });
   }
@@ -438,13 +468,43 @@ export class SessionStore {
     const ids = this.state.pendingAssign;
     this.set({ dialog: null, pendingAssign: [] });
     if (!clean) return;
-    if (ids.length) this.markForSector(clean, ids);
+    if (ids.length) this.classify(clean, ids);
     else this.addSector(clean);
   }
 
-  /** Quita fotos de la selección de su sector (vuelven a pendiente). */
-  unmark(ids: readonly PhotoId[]): void {
-    this.apply(setStatus(this.library, this.photosOf(ids), 'pending'));
+  /** Quita fotos de su sector (vuelven a «sin clasificar»). */
+  unclassify(ids: readonly PhotoId[]): void {
+    this.classify(null, ids);
+  }
+
+  // ------------------------------------------------------------ etapas
+  setStage(stage: Stage): void {
+    if (stage === this.state.stage) return;
+    this.set({
+      stage,
+      view: 'grid',
+      zoom: false,
+      reviewFilterLibrary: null,
+      filter: DEFAULT_FILTER,
+      selection: new Set(),
+    });
+    const first = derive(this.state).visible[0] ?? null;
+    this.set({ focusId: first, anchorId: first, selection: first ? new Set([first]) : new Set() });
+  }
+
+  setValidateSector(sector: string | null): void {
+    this.set({ validateSector: sector, filter: { ...this.state.filter, sector: null } });
+    const first = derive(this.state).visible[0] ?? null;
+    this.set({ focusId: first, anchorId: first, selection: first ? new Set([first]) : new Set() });
+  }
+
+  /** Etapa 2: abre un sector a pantalla completa en su primera foto por validar. */
+  startValidation(sector: string | null): void {
+    this.set({ stage: 'validate', validateSector: sector, filter: DEFAULT_FILTER, view: 'grid' });
+    const { visible } = derive(this.state);
+    const first = visible.find((id) => this.statusOf(id) === 'pending') ?? visible[0];
+    if (!first) return this.toast('Este sector no tiene fotos clasificadas.');
+    this.openReview(first);
   }
 
   openSectorWindow(sector: string): void {

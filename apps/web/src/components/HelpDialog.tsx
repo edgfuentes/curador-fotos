@@ -3,20 +3,18 @@ import { Dialog } from './Dialog';
 
 export const SHORTCUTS: [string, string][] = [
   ['← → ↑ ↓', 'Moverse entre fotos'],
-  ['Inicio / Fin', 'Primera / última foto'],
   ['Intro o Espacio', 'Abrir la foto a pantalla completa'],
-  ['1 … 9', 'Marcar para el sector con ese número (panel derecho)'],
-  ['P', 'Marcar en el sector de su carpeta (otra vez: desmarcar)'],
-  ['X', 'Descartar (otra vez: volver a pendiente)'],
-  ['U', 'Volver a pendiente'],
+  ['1 … 9', 'Etapa 1 · Clasificar en el sector con ese número'],
+  ['0 o ⌫', 'Etapa 1 · Dejar la foto sin clasificar'],
+  ['A (o P)', 'Etapa 2 · Aprobar'],
+  ['R (o X)', 'Etapa 2 · Rechazar'],
+  ['U', 'Etapa 2 · Dejar por validar'],
   ['Z', 'Zoom al 100 % (original)'],
   ['Esc o G', 'Volver a la cuadrícula'],
   ['⌘Z / ⇧⌘Z', 'Deshacer / rehacer'],
-  ['⌥← / ⌥→', 'En la ventana de un sector: mover la foto en el orden'],
-  ['⌫', 'En la ventana de un sector: quitar la foto del sector'],
   ['⇧ + clic / ⌘ + clic', 'Seleccionar rango / varias'],
   ['⌘A', 'Seleccionar todas las visibles'],
-  ['E', 'Exportar seleccionadas'],
+  ['E', 'Exportar aprobadas'],
   ['?', 'Mostrar esta ayuda'],
 ];
 
@@ -37,9 +35,10 @@ export function HelpDialog() {
         </tbody>
       </table>
       <p className="muted small">
-        Bajo cada foto seleccionada hay una lista para marcarla en un sector, dejarla pendiente o descartarla. También puedes
-        arrastrar fotos a una tarjeta del panel de sectores. Para fijar el orden final, abre el sector (↗) y arrastra las
-        fotos en esa ventana: el orden manual prevalece sobre el orden por fecha.
+        <strong>1 · Clasificar</strong> (fotógrafo): asigna un sector a cada foto con la lista bajo la miniatura, con las teclas o
+        arrastrándola a una tarjeta. <strong>2 · Validar</strong> (validador): elige un sector y aprueba o rechaza foto por foto.
+        <strong> 3 · Exportar</strong>: copia solo las aprobadas, una subcarpeta por sector. Para fijar el orden final, abre el
+        sector (↗) en el panel de la derecha y arrastra las fotos.
       </p>
     </Dialog>
   );

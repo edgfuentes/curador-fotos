@@ -1,5 +1,5 @@
 import { memo, useMemo, useState, type DragEvent } from 'react';
-import { statusOf, type Photo, type PhotoId } from '@curador/core';
+import { NO_SECTOR, type Photo, type PhotoId } from '@curador/core';
 import { useDerived, useSession, useStoreApi } from '../app/context';
 import { openSectorWindow } from '../app/popup';
 import { useView } from '../app/useView';
@@ -20,27 +20,38 @@ function readDraggedIds(e: DragEvent): PhotoId[] {
 /** Panel derecho: cada sector con cuántas fotos tiene marcadas y una muestra de 3. */
 export function SectorsPanel() {
   const store = useStoreApi();
-  const { ordered, counts, sectorNames } = useDerived();
-  const library = useSession((s) => s.history.present);
+  const { ordered, sectorNames, unclassified, counts } = useDerived();
   const byId = useSession((s) => s.byId);
+  const filter = useSession((s) => s.filter);
   const [newName, setNewName] = useState('');
 
-  const markedBySector = useMemo(() => {
-    const m = new Map<string, PhotoId[]>();
-    for (const s of ordered.sectors) m.set(s.name, s.photoIds.filter((id) => statusOf(library, id) === 'marked'));
-    return m;
-  }, [ordered, library]);
+  const bySector = useMemo(() => new Map(ordered.sectors.map((s) => [s.name, s.photoIds])), [ordered]);
+  const classified = counts.total.total - unclassified;
 
   return (
     <aside className="sectors-panel" aria-label="Sectores y fotos marcadas">
       <header className="sectors-head">
         <h3>Sectores</h3>
         <span className="count">
-          <strong className="text-marked">{counts.total.marked}</strong> marcadas
+          <strong className="text-classified">{classified}</strong>/{counts.total.total} clasificadas
         </span>
       </header>
+      <button
+        className={`unclassified-card${filter.sector === NO_SECTOR ? ' on' : ''}${unclassified === 0 ? ' done' : ''}`}
+        onClick={() => store.setFilter({ sector: filter.sector === NO_SECTOR ? null : NO_SECTOR })}
+        aria-pressed={filter.sector === NO_SECTOR}
+        title="Ver solo las fotos sin clasificar"
+      >
+        {unclassified === 0 ? (
+          <span>✓ Todas las fotos tienen sector</span>
+        ) : (
+          <>
+            <strong>{unclassified}</strong> sin clasificar
+          </>
+        )}
+      </button>
       <p className="muted small sectors-hint">
-        Elige el sector en la lista bajo cada foto, pulsa <kbd>1</kbd>–<kbd>9</kbd> o arrastra fotos a una tarjeta.
+        Elige el sector en la lista bajo cada foto, pulsa <kbd>1</kbd>–<kbd>9</kbd> (<kbd>0</kbd> lo quita) o arrastra fotos a una tarjeta.
       </p>
       <ul className="sector-cards">
         {sectorNames.map((name, i) => (
@@ -48,13 +59,18 @@ export function SectorsPanel() {
             key={name}
             name={name}
             index={i}
-            marked={markedBySector.get(name) ?? []}
+            marked={bySector.get(name) ?? []}
             byId={byId}
-            onDropIds={(ids) => store.markForSector(name, ids)}
+            onDropIds={(ids) => store.classify(name, ids)}
             onOpen={() => openSectorWindow(store, name)}
           />
         ))}
       </ul>
+      {unclassified === 0 && classified > 0 && (
+        <button className="btn btn-primary full" onClick={() => store.setStage('validate')}>
+          Pasar a validar ▶
+        </button>
+      )}
       <form
         className="row sectors-new"
         onSubmit={(e) => {
@@ -129,7 +145,7 @@ const SectorCard = memo(function SectorCard({
             {rest > 0 && <span className="mini-more">+{rest}</span>}
           </span>
         ) : (
-          <span className="sector-card-empty small muted">Sin fotos todavía</span>
+          <span className="sector-card-empty small muted">Sin fotos todavía · suelta fotos aquí</span>
         )}
       </button>
     </li>

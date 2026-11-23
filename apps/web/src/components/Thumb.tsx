@@ -1,12 +1,13 @@
 import { memo, type DragEvent } from 'react';
-import { formatWallClock, type CurationStatus, type Photo } from '@curador/core';
+import { formatWallClock, NO_SECTOR, type CurationStatus, type Photo } from '@curador/core';
+import type { Stage } from '../app/store';
 import { useView } from '../app/useView';
 import { SectorSelect, type Choice } from './SectorSelect';
 
 export const STATUS_LABEL: Record<CurationStatus, string> = {
-  pending: 'pendiente',
-  marked: 'marcada',
-  discarded: 'descartada',
+  pending: 'por validar',
+  marked: 'aprobada',
+  discarded: 'rechazada',
 };
 
 interface Props {
@@ -18,13 +19,15 @@ interface Props {
   time: number | undefined;
   size: number;
   dropSide?: 'before' | 'after' | null;
-  /** Sector asignado (se muestra si la foto está marcada). */
+  stage: Stage;
+  /** Sector asignado (NO_SECTOR = sin clasificar). */
   sector: string | undefined;
   sectorNames: readonly string[];
   onChoose(id: string, choice: Choice): void;
+  onValidate(id: string, status: CurationStatus): void;
   onClick(e: React.MouseEvent, id: string): void;
   onDoubleClick(id: string): void;
-  onDragStart(e: DragEvent, id: string): void;
+  onDragStart?(e: DragEvent, id: string): void;
   onDragOver?(e: DragEvent, id: string): void;
   onDrop?(e: DragEvent, id: string): void;
   onDragEnd(): void;
@@ -32,7 +35,9 @@ interface Props {
 
 export const Thumb = memo(function Thumb(p: Props) {
   const view = useView(p.photo, 'grid', 1);
-  const cls = ['tile', `is-${p.status}`, p.selected && 'is-selected', p.focused && 'is-focused', p.dropSide && `drop-${p.dropSide}`]
+  const classified = p.sector !== undefined && p.sector !== NO_SECTOR;
+  // En la etapa 1 no se muestran aprobadas/rechazadas: solo importa el sector.
+  const cls = ['tile', p.stage === 'validate' ? `is-${p.status}` : classified ? 'is-classified' : 'is-unclassified', p.selected && 'is-selected', p.focused && 'is-focused', p.dropSide && `drop-${p.dropSide}`]
     .filter(Boolean)
     .join(' ');
   const time = p.time !== undefined ? formatWallClock(p.time) : 'sin fecha EXIF';
@@ -43,8 +48,8 @@ export const Thumb = memo(function Thumb(p: Props) {
       role="gridcell"
       aria-selected={p.selected}
       data-id={p.photo.id}
-      draggable
-      onDragStart={(e) => p.onDragStart(e, p.photo.id)}
+      draggable={!!p.onDragStart}
+      onDragStart={p.onDragStart ? (e) => p.onDragStart!(e, p.photo.id) : undefined}
       onDragOver={p.onDragOver ? (e) => p.onDragOver!(e, p.photo.id) : undefined}
       onDrop={p.onDrop ? (e) => p.onDrop!(e, p.photo.id) : undefined}
       onDragEnd={p.onDragEnd}
@@ -52,7 +57,7 @@ export const Thumb = memo(function Thumb(p: Props) {
       <button
         className="tile-btn"
         tabIndex={p.focused ? 0 : -1}
-        aria-label={`${p.photo.fileName}, ${STATUS_LABEL[p.status]}, ${time}`}
+        aria-label={`${p.photo.fileName}, ${classified ? p.sector : 'sin clasificar'}${p.stage === 'validate' ? `, ${STATUS_LABEL[p.status]}` : ''}, ${time}`}
         onClick={(e) => p.onClick(e, p.photo.id)}
         onDoubleClick={() => p.onDoubleClick(p.photo.id)}
       >
@@ -67,7 +72,7 @@ export const Thumb = memo(function Thumb(p: Props) {
               <small>sin vista previa</small>
             </span>
           )}
-          {p.status !== 'pending' && (
+          {p.stage === 'validate' && p.status !== 'pending' && (
             <span className={`badge badge-${p.status}`} aria-hidden="true">
               {p.status === 'marked' ? '✓' : '✕'}
             </span>
@@ -86,21 +91,36 @@ export const Thumb = memo(function Thumb(p: Props) {
         </span>
       </button>
       <div className="tile-assign">
-        {p.focused || p.selected ? (
-          <SectorSelect
-            status={p.status}
-            sector={p.sector}
-            sectorNames={p.sectorNames}
-            onChoose={(c) => p.onChoose(p.photo.id, c)}
-            label={`Qué hacer con ${p.photo.fileName}`}
-          />
-        ) : p.status === 'marked' ? (
-          <span className="chip chip-marked" title={`Marcada para ${p.sector ?? ''}`}>
-            ✓ {p.sector}
+        {p.stage === 'classify' ? (
+          p.focused || p.selected ? (
+            <SectorSelect sector={p.sector} sectorNames={p.sectorNames} onChoose={(c) => p.onChoose(p.photo.id, c)} label={`Sector de ${p.photo.fileName}`} />
+          ) : classified ? (
+            <span className="chip chip-sector" title={`Sector: ${p.sector}`}>
+              {p.sector}
+            </span>
+          ) : (
+            <span className="chip chip-none">Sin clasificar</span>
+          )
+        ) : (
+          <span className="validate-btns" role="group" aria-label={`Validar ${p.photo.fileName}`}>
+            <button
+              className={`vbtn vbtn-ok${p.status === 'marked' ? ' on' : ''}`}
+              aria-pressed={p.status === 'marked'}
+              onClick={() => p.onValidate(p.photo.id, p.status === 'marked' ? 'pending' : 'marked')}
+              tabIndex={-1}
+            >
+              ✓ Aprobar
+            </button>
+            <button
+              className={`vbtn vbtn-no${p.status === 'discarded' ? ' on' : ''}`}
+              aria-pressed={p.status === 'discarded'}
+              onClick={() => p.onValidate(p.photo.id, p.status === 'discarded' ? 'pending' : 'discarded')}
+              tabIndex={-1}
+            >
+              ✕ Rechazar
+            </button>
           </span>
-        ) : p.status === 'discarded' ? (
-          <span className="chip chip-discarded">✕ Descartada</span>
-        ) : null}
+        )}
       </div>
     </div>
   );

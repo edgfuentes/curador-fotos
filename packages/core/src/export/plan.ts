@@ -1,4 +1,3 @@
-import { compareSectors } from '../ordering';
 import type { Photo, PhotoId } from '../model';
 import { prefixedName, resolveCollision, sanitizeFolderName } from './naming';
 
@@ -78,8 +77,8 @@ export function buildExportPlan(
 
   const items: ExportPlanItem[] = [];
   let order = 0;
+  // Las carpetas siguen el orden de entrada (el orden de la lista de sectores).
   const orderedFolders = [...folders.entries()];
-  if (options.bySector) orderedFolders.sort((a, b) => compareSectors(a[1].sector, b[1].sector));
   for (const [subfolder, group] of orderedFolders) {
     const taken = new Set<string>(['manifest.json']);
     const count = group.photos.length;

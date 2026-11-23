@@ -168,6 +168,16 @@ async function opfsRoot(): Promise<FileSystemDirectoryHandle> {
   return navigator.storage.getDirectory();
 }
 
+type IterableDir = FileSystemDirectoryHandle & { values(): AsyncIterable<FileSystemHandle> };
+
+async function hasAnyFile(dir: FileSystemDirectoryHandle): Promise<boolean> {
+  for await (const h of (dir as IterableDir).values()) {
+    if (h.kind === 'file') return true;
+    if (await hasAnyFile(h as FileSystemDirectoryHandle)) return true;
+  }
+  return false;
+}
+
 export async function createDemoSource(): Promise<WebSourceDirectory> {
   const root = await opfsRoot();
   let version: string | null = null;
@@ -180,13 +190,11 @@ export async function createDemoSource(): Promise<WebSourceDirectory> {
     await root.removeEntry(SOURCE_DIR, { recursive: true }).catch(() => undefined);
     await root.removeEntry(DEST_DIR, { recursive: true }).catch(() => undefined);
   }
-  const dir = await root.getDirectoryHandle(SOURCE_DIR, { create: true });
-  let empty = true;
-  for await (const _ of (dir as FileSystemDirectoryHandle & { keys(): AsyncIterable<string> }).keys()) {
-    empty = false;
-    break;
-  }
-  if (empty) {
+  let dir = await root.getDirectoryHandle(SOURCE_DIR, { create: true });
+  // Si el navegador borró los archivos (pero no las carpetas), se vuelve a generar todo.
+  if (!(await hasAnyFile(dir))) {
+    await root.removeEntry(SOURCE_DIR, { recursive: true }).catch(() => undefined);
+    dir = await root.getDirectoryHandle(SOURCE_DIR, { create: true });
     await generate(dir);
     try {
       localStorage.setItem('curador-demo-version', VERSION);

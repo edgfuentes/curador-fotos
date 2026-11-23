@@ -2,26 +2,49 @@ import { effectiveCaptureMs } from './capture';
 import { naturalCompare } from './files';
 import type { CameraSettings, LibraryState, Photo, PhotoId } from './model';
 
-export const NO_SECTOR = 'Sin sector';
+/** Grupo de las fotos que todavía no tienen sector (etapa 1: clasificar). */
+export const NO_SECTOR = 'Sin clasificar';
 
-/** Sector por defecto: primera subcarpeta bajo la carpeta de origen. */
+/** Nombre del grupo de fotos que están directamente en la carpeta de origen. */
+export const ROOT_FOLDER = 'Carpeta principal';
+
+/** Sectores con los que empieza la app; el fotógrafo puede agregar más. */
+export const DEFAULT_SECTORS: readonly string[] = ['Entrada', 'Banda', 'Congregación', 'Otros'];
+
+/** Carpeta de origen de una foto: su primera subcarpeta (solo para agrupar en pantalla). */
 export function folderSector(photo: Pick<Photo, 'folder'>): string {
-  if (!photo.folder) return NO_SECTOR;
+  if (!photo.folder) return ROOT_FOLDER;
   const first = photo.folder.split('/')[0];
-  return first && first.trim() ? first : NO_SECTOR;
+  return first && first.trim() ? first : ROOT_FOLDER;
 }
 
-/** Sector efectivo: asignación manual si existe; si no, la subcarpeta de origen. */
-export function sectorOf(photo: Pick<Photo, 'id' | 'folder'>, library: LibraryState): string {
-  return library.records[photo.id]?.sector ?? folderSector(photo);
+/** Sector de una foto: el que le asignó el fotógrafo, o «Sin clasificar». */
+export function sectorOf(photo: Pick<Photo, 'id'>, library: LibraryState): string {
+  return library.records[photo.id]?.sector ?? NO_SECTOR;
 }
 
-/** Orden de sectores: natural ("Sector 2" < "Sector 10"), "Sin sector" al final. */
+/** Orden natural ("Sector 2" < "Sector 10"); «Sin clasificar» y la carpeta principal al final. */
 export function compareSectors(a: string, b: string): number {
   if (a === b) return 0;
-  if (a === NO_SECTOR) return 1;
-  if (b === NO_SECTOR) return -1;
+  for (const last of [NO_SECTOR, ROOT_FOLDER]) {
+    if (a === last) return 1;
+    if (b === last) return -1;
+  }
   return naturalCompare(a, b);
+}
+
+/** Orden de los sectores: el de la lista de sectores; los demás en orden natural; «Sin clasificar» al final. */
+export function sectorComparator(list: readonly string[]): (a: string, b: string) => number {
+  return (a, b) => {
+    const ia = list.indexOf(a);
+    const ib = list.indexOf(b);
+    if (a !== NO_SECTOR && b !== NO_SECTOR && (ia >= 0 || ib >= 0)) {
+      if (ia < 0) return 1;
+      if (ib < 0) return -1;
+      return ia - ib;
+    }
+    return compareSectors(a, b);
+  };
 }
 
 export type TimeLookup = (id: PhotoId) => number | undefined;
@@ -122,7 +145,7 @@ export function orderLibrary(
   for (const s of library.extraSectors) if (!groups.has(s)) groups.set(s, []);
 
   const compare = makeAutoComparator(byId, (id) => timeById.get(id));
-  const names = [...groups.keys()].sort(compareSectors);
+  const names = [...groups.keys()].sort(sectorComparator(library.extraSectors));
   const sectors: SectorGroup[] = names.map((name) => {
     const auto = [...groups.get(name)!].sort(compare);
     const manual = library.manualOrder[name];

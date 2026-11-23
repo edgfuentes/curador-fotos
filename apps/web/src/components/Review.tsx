@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
-import { cameraDisplayName, formatOffset, formatWallClock, statusOf } from '@curador/core';
+import { cameraDisplayName, formatOffset, formatWallClock, NO_SECTOR, statusOf, type CurationStatus } from '@curador/core';
 import { useDerived, useSession, useStoreApi } from '../app/context';
 import { usePreload, useView } from '../app/useView';
 import { SectorSelect } from './SectorSelect';
@@ -19,6 +19,8 @@ export function Review() {
   const zoom = useSession((s) => s.zoom);
   const cameras = useSession((s) => s.cameras);
   const autoAdvance = useSession((s) => s.autoAdvance);
+  const stage = useSession((s) => s.stage);
+  const validateSector = useSession((s) => s.validateSector);
 
   const index = focusId ? visible.indexOf(focusId) : -1;
   const photo = focusId ? byId.get(focusId) : undefined;
@@ -48,7 +50,13 @@ export function Review() {
   const time = ordered.timeById.get(photo.id);
   const offset = photo.camera ? (cameras[photo.camera.id]?.offsetSeconds ?? 0) : 0;
   const sector = ordered.sectorById.get(photo.id) ?? '';
-  const afterMark = autoAdvance ? (next?.id ?? null) : null;
+  const classified = sector !== NO_SECTOR;
+  // Validar: pasar a la siguiente foto todavía por validar (o simplemente a la siguiente).
+  const validate = (st: CurationStatus) => {
+    const after = visible.slice(index + 1).find((id) => statusOf(library, id) === 'pending');
+    store.validate(st, [photo.id], autoAdvance ? (after ?? next?.id ?? null) : null);
+  };
+  const pendingLeft = stage === 'validate' ? visible.filter((id) => statusOf(library, id) === 'pending').length : 0;
 
   return (
     <div className="review" role="dialog" aria-modal="true" aria-label={`Revisión: ${photo.fileName}`}>
@@ -59,12 +67,20 @@ export function Review() {
         <div className="review-title">
           <strong>{photo.fileName}</strong>
           <span className="muted">
-            {index + 1} de {visible.length} · {photo.folder || 'carpeta raíz'}
+            {stage === 'classify'
+              ? `${index + 1} de ${visible.length} · ${photo.folder || 'carpeta principal'}`
+              : `Validando «${validateSector ?? sector}» · ${index + 1} de ${visible.length} · faltan ${pendingLeft}`}
           </span>
         </div>
-        <span className={`status-pill status-${status}`} aria-live="polite">
-          {status === 'marked' ? `✓ ${sector}` : STATUS_LABEL[status]}
-        </span>
+        {stage === 'classify' ? (
+          <span className={`status-pill ${classified ? 'status-classified' : 'status-pending'}`} aria-live="polite">
+            {classified ? sector : 'Sin clasificar'}
+          </span>
+        ) : (
+          <span className={`status-pill status-${status}`} aria-live="polite">
+            {sector} · {STATUS_LABEL[status]}
+          </span>
+        )}
       </header>
 
       <div className="review-stage">
@@ -116,38 +132,47 @@ export function Review() {
             {photo.relativePath}
           </span>
         </div>
-        <div className="review-actions" role="toolbar" aria-label="Acciones de curación">
-          <SectorSelect
-            className="review-select"
-            status={status}
-            sector={sector}
-            sectorNames={sectorNames}
-            label="Marcar para un sector"
-            onChoose={(c) => {
-              if (c === 'new') return store.askNewSector([photo.id]);
-              store.choose([photo.id], c);
-              if (c !== 'pending' && afterMark) store.focus(afterMark);
-            }}
-          />
-          <button className={`btn ${status === 'marked' ? 'btn-marked' : ''}`} onClick={() => store.mark('marked', afterMark)} aria-pressed={status === 'marked'}>
-            ✓ Marcar <kbd>P</kbd>
-          </button>
-          <button
-            className={`btn ${status === 'discarded' ? 'btn-discarded' : ''}`}
-            onClick={() => store.mark('discarded', afterMark)}
-            aria-pressed={status === 'discarded'}
-          >
-            ✕ Descartar <kbd>X</kbd>
-          </button>
-          <button className="btn" onClick={() => store.resetStatus()}>
-            Pendiente <kbd>U</kbd>
-          </button>
+        <div className="review-actions" role="toolbar" aria-label={stage === 'classify' ? 'Clasificar' : 'Validar'}>
+          {stage === 'classify' ? (
+            <>
+              <SectorSelect
+                className="review-select"
+                sector={sector}
+                sectorNames={sectorNames}
+                label="Sector de la foto"
+                onChoose={(c) => {
+                  if (c === 'new') return store.askNewSector([photo.id]);
+                  store.choose([photo.id], c);
+                  if (c !== 'unclassified' && autoAdvance && next) store.focus(next.id);
+                }}
+              />
+              <span className="review-keys muted small">
+                {sectorNames.slice(0, 9).map((name, k) => (
+                  <button key={name} className={`btn btn-sm${sector === name ? ' btn-classified' : ''}`} onClick={() => store.classify(name, [photo.id], autoAdvance ? (next?.id ?? null) : null)}>
+                    <kbd>{k + 1}</kbd> {name}
+                  </button>
+                ))}
+              </span>
+            </>
+          ) : (
+            <>
+              <button className={`btn ${status === 'marked' ? 'btn-marked' : ''}`} onClick={() => validate('marked')} aria-pressed={status === 'marked'}>
+                ✓ Aprobar <kbd>A</kbd>
+              </button>
+              <button className={`btn ${status === 'discarded' ? 'btn-discarded' : ''}`} onClick={() => validate('discarded')} aria-pressed={status === 'discarded'}>
+                ✕ Rechazar <kbd>R</kbd>
+              </button>
+              <button className="btn" onClick={() => store.validate('pending', [photo.id])}>
+                Por validar <kbd>U</kbd>
+              </button>
+            </>
+          )}
           <button className="btn" onClick={() => store.setZoom(!zoom)} aria-pressed={zoom}>
             100 % <kbd>Z</kbd>
           </button>
           <label className="check">
             <input type="checkbox" checked={autoAdvance} onChange={(e) => store.setUi({ autoAdvance: e.target.checked })} />
-            Avanzar al marcar
+            Avanzar sola
           </label>
         </div>
       </footer>

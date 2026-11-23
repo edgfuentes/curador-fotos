@@ -4,6 +4,7 @@ import {
   DEFAULT_EXPORT_OPTIONS,
   prefixedName,
   runExport,
+  NO_SECTOR,
   statusOf,
   type DestinationDirectory,
   type ExportOptions,
@@ -48,7 +49,15 @@ export function ExportDialog() {
     void store.savePreference('export', next);
   };
 
-  const markedIds = useMemo(() => ordered.flat.filter((id) => statusOf(library, id) === 'marked'), [ordered, library]);
+  // Solo fotos clasificadas y aprobadas por el validador.
+  const markedIds = useMemo(
+    () => ordered.flat.filter((id) => statusOf(library, id) === 'marked' && ordered.sectorById.get(id) !== NO_SECTOR),
+    [ordered, library],
+  );
+  const pendingCount = useMemo(
+    () => ordered.flat.filter((id) => statusOf(library, id) === 'pending' && ordered.sectorById.get(id) !== NO_SECTOR).length,
+    [ordered, library],
+  );
   const plan = useMemo(
     () => buildExportPlan(markedIds, byId, ordered.sectorById, { ...options, baseFolderName: options.baseFolderName.trim() || DEFAULT_EXPORT_OPTIONS.baseFolderName }),
     [markedIds, byId, ordered.sectorById, options],
@@ -125,7 +134,7 @@ export function ExportDialog() {
   };
 
   return (
-    <Dialog title="Exportar seleccionadas" onClose={close} closable={phase !== 'running'} wide>
+    <Dialog title="3 · Exportar fotos aprobadas" onClose={close} closable={phase !== 'running'} wide>
       {phase === 'options' && (
         <>
           <p>
@@ -134,7 +143,12 @@ export function ExportDialog() {
           </p>
           {plan.items.length === 0 && (
             <p className="warn" role="alert">
-              No hay fotos marcadas. Marca fotos con la tecla P antes de exportar.
+              No hay fotos aprobadas. Primero clasifícalas por sector (etapa 1) y apruébalas en la etapa 2.
+            </p>
+          )}
+          {pendingCount > 0 && plan.items.length > 0 && (
+            <p className="warn" role="alert">
+              Atención: quedan {pendingCount} fotos clasificadas sin validar. No se exportarán hasta que las aprueben.
             </p>
           )}
           <div className="form">

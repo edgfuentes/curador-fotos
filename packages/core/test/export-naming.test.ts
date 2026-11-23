@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   buildExportPlan,
   DEFAULT_EXPORT_OPTIONS,
+  classify,
+  classifyByFolder,
+  DEFAULT_SECTORS,
+  withSectors,
   emptyLibraryState,
   orderLibrary,
   prefixedName,
@@ -60,7 +64,7 @@ describe('plan de exportación', () => {
     makePhoto('Sector 2/DSC_6.NEF', { time: '2026:11:21 09:00:01' }),
   ];
   const byId = new Map(photos.map((p) => [p.id, p]));
-  const lib = setStatus(emptyLibraryState(), photos, 'marked');
+  const lib = setStatus(classifyByFolder(emptyLibraryState(), photos), photos, 'marked');
   const ordered = orderLibrary(photos, lib, {});
   const ids = ordered.flat.filter((id) => statusOf(lib, id) === 'marked');
 
@@ -74,6 +78,21 @@ describe('plan de exportación', () => {
     ]);
     expect(plan.items.map((i) => i.order)).toEqual([1, 2, 3, 4]);
     expect(plan.subfolders).toEqual(['Sector 1', 'Sector 2']);
+  });
+
+  it('las carpetas siguen el orden de la lista de sectores y solo van las aprobadas', () => {
+    const a = makePhoto('x/a.jpg', { time: '2026:11:21 10:00:00' });
+    const b = makePhoto('x/b.jpg', { time: '2026:11:21 09:00:00' });
+    const c = makePhoto('x/c.jpg', { time: '2026:11:21 08:00:00' });
+    const all = [a, b, c];
+    let l = withSectors(emptyLibraryState(), DEFAULT_SECTORS);
+    l = classify(l, [a], 'Entrada');
+    l = classify(l, [b, c], 'Banda');
+    l = setStatus(setStatus(l, [a, b], 'marked'), [c], 'discarded');
+    const o = orderLibrary(all, l, {});
+    const approved = o.flat.filter((id) => statusOf(l, id) === 'marked');
+    const plan = buildExportPlan(approved, new Map(all.map((p) => [p.id, p])), o.sectorById, DEFAULT_EXPORT_OPTIONS);
+    expect(plan.items.map((i) => `${i.subfolder}/${i.targetName}`)).toEqual(['Entrada/001_a.jpg', 'Banda/001_b.jpg']);
   });
 
   it('sin prefijo: resuelve el choque de dos IMG_1.jpg de distintas cámaras', () => {

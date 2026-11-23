@@ -3,8 +3,8 @@
 Aplicación web **local-first** para Mac que sirve para curar fotografías de varias cámaras y teléfonos:
 
 - las ordena por **fecha real de captura** (EXIF), corrigiendo relojes desajustados de cada cámara;
-- permite marcar o descartar con el teclado y fijar un orden manual arrastrando;
-- **exporta los originales** a una carpeta «Para subir a redes», con verificación SHA-256.
+- el fotógrafo las **clasifica por sector** (Entrada, Banda, Congregación, Otros…) y luego un validador las **aprueba o rechaza**;
+- **exporta los originales aprobados** a una carpeta «Para subir a redes», con verificación SHA-256.
 
 No hay servidor: las fotos nunca salen del computador.
 
@@ -18,45 +18,58 @@ No hay servidor: las fotos nunca salen del computador.
 
 ## Uso rápido
 
+El trabajo se hace en **tres etapas**, en el mismo computador y sin usuarios: el fotógrafo clasifica y, después, otra persona valida.
+
 1. Abre la app en **Google Chrome** o **Microsoft Edge**. Safari y Firefox todavía no permiten acceder a carpetas; si los usas, la app muestra un aviso.
-2. Pulsa **«Elegir carpeta de fotos…»** y elige la carpeta de la semana. Se leen todas las subcarpetas.
+2. Pulsa **«Elegir carpeta de fotos…»** y elige la carpeta del evento. Se leen todas las subcarpetas.
    - La próxima vez puedes pulsar **«Continuar con …»**: el navegador vuelve a pedir permiso con un clic.
    - Para probar sin tus fotos, usa **«Probar con fotos de demostración»**.
-3. La pantalla tiene tres columnas:
-   - **Izquierda:** filtros por estado, carpeta de origen, cámara y duplicados.
-   - **Centro:** todas las fotos cargadas, agrupadas por **carpeta de origen** y ordenadas por fecha de captura. Al marcarlas **no cambian de lugar**.
-   - **Derecha:** los **sectores**, cada uno con cuántas fotos tiene marcadas y una muestra de 3.
-4. Si una cámara tenía la hora mal, ve a **Ajustar hora de cámaras…** e indica el desfase. También puedes escribir la hora real de su primera foto y pulsar «Calcular desfase».
-5. Para decidir qué hacer con una foto, selecciónala y usa la **lista desplegable bajo la miniatura**: marcarla para un sector, dejarla pendiente, descartarla o crear un sector nuevo. Si tienes varias fotos seleccionadas, la elección se aplica a todas. También puedes **arrastrar** fotos a la tarjeta de un sector o usar el teclado:
+3. Si una cámara tenía la hora mal, ve a **Ajustar hora de cámaras…** e indica el desfase. También puedes escribir la hora real de su primera foto y pulsar «Calcular desfase».
+
+### Etapa 1 · Clasificar (fotógrafo)
+
+Todas las fotos empiezan **sin clasificar**. La pantalla tiene tres columnas:
+
+- **Izquierda:** el filtro «Mostrar: Todas / Sin clasificar», las carpetas de origen, las cámaras y los duplicados.
+- **Centro:** las fotos agrupadas por carpeta de origen y ordenadas por hora. Al clasificarlas **no cambian de lugar**.
+- **Derecha:** los sectores (**Entrada, Banda, Congregación, Otros** y los que agregues), cada uno con su cantidad de fotos y una muestra de 3. Arriba se ve cuántas faltan por clasificar.
+
+Para asignar el sector de una foto puedes:
+
+- usar la **lista desplegable bajo la miniatura** (también sirve para crear un sector nuevo);
+- pulsar **1–9**: la app pasa sola a la siguiente foto;
+- **arrastrar** la foto a la tarjeta de un sector.
+
+Con **0** o **⌫** la foto vuelve a quedar sin clasificar. Si hay varias fotos seleccionadas, la elección se aplica a todas. Los sectores nuevos se recuerdan para las próximas carpetas.
+
+Al pulsar una tarjeta (↗), el sector se abre en una **ventana aparte** que se actualiza en vivo. Ahí puedes fijar el orden final arrastrando las fotos o con ⌥← / ⌥→. Si el navegador bloquea la ventana, permite las ventanas emergentes para este sitio.
+
+### Etapa 2 · Validar (validador)
+
+Pulsa **2 · Validar**. A la izquierda aparece cada sector con su avance: aprobadas, rechazadas y cuántas faltan.
+
+Elige un sector y pulsa **Validar a pantalla completa**. La app muestra las fotos de a una y pasa sola a la siguiente por validar:
 
 | Tecla | Acción |
 |---|---|
-| ← → ↑ ↓ | Moverse entre fotos |
-| Intro / Espacio | Abrir a pantalla completa |
-| **1 … 9** | Marcar para el sector con ese número (panel derecho) |
-| **P** | Marcar en su sector actual (otra vez: desmarcar) |
-| **X** | Descartar |
-| **U** | Volver a pendiente |
+| **A** | Aprobar |
+| **R** | Rechazar |
+| **U** | Dejar por validar |
+| ← → | Foto anterior / siguiente |
 | **Z** | Zoom al 100 % (original) |
-| Esc / G | Volver a la cuadrícula |
-| ⌘Z / ⇧⌘Z | Deshacer / rehacer |
-| ⇧ clic / ⌘ clic, ⌘A | Seleccionar rango / varias / todas |
-| E | Exportar |
-| ? | Ayuda de atajos |
+| Esc | Volver a la cuadrícula |
 
-6. Para ver un sector completo, pulsa su tarjeta (↗). Se abre en una **ventana aparte**, que puedes poner al lado o en otro monitor, y se actualiza en vivo mientras sigues marcando. Ahí ves todas sus fotos en el orden de exportación (001, 002…) y puedes:
-   - **arrastrarlas** para fijar el orden final, o moverlas con ⌥← / ⌥→;
-   - moverlas a otro sector con su lista;
-   - quitarlas con ✕ o ⌫.
+En la cuadrícula también puedes aprobar o rechazar con los botones bajo cada foto. Si en la etapa 1 cambian a una foto de sector, su validación anterior se anula y vuelve a quedar por validar.
 
-   El orden manual prevalece sobre el orden por fecha, y si después marcas más fotos, se intercalan según su hora de captura. Si el navegador bloquea la ventana, permite las ventanas emergentes para este sitio.
-7. Pulsa **Exportar seleccionadas** y elige la carpeta de destino, por ejemplo el Escritorio. La app crea:
+### Etapa 3 · Exportar
+
+Pulsa **3 · Exportar** y elige la carpeta de destino, por ejemplo el Escritorio. Solo se copian las fotos **aprobadas**, en el orden de la lista de sectores. Si quedan fotos sin validar, la app te avisa. La app crea:
 
 ```
 Para subir a redes/
-  Sector 1/001_IMG_1234.HEIC
-  Sector 1/002_DSC_0456.JPG
-  Sector 2/001_…
+  Entrada/001_IMG_1234.HEIC
+  Entrada/002_DSC_0456.JPG
+  Banda/001_…
   manifest.json
 ```
 
@@ -69,7 +82,7 @@ Si ya existe una exportación con ese nombre, se crea `Para subir a redes (2)`; 
 
 Al terminar verás un resumen con las fotos copiadas, verificadas y con errores. `manifest.json` incluye el orden, la ruta original, el SHA-256, la hora de captura (con y sin ajuste) y la cámara de cada foto, además de la fecha de exportación.
 
-Tus marcas, desfases y orden manual se guardan solos en este navegador (IndexedDB). No se pierden si cierras la pestaña.
+Los sectores, las validaciones, los desfases y el orden manual se guardan solos en este navegador (IndexedDB). No se pierden si cierras la pestaña.
 
 ### Formatos
 

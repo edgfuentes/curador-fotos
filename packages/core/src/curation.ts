@@ -1,4 +1,5 @@
-import { folderSector } from './ordering';
+import { naturalCompare } from './files';
+import { folderSector, ROOT_FOLDER } from './ordering';
 import type { CurationRecord, CurationStatus, LibraryState, Photo, PhotoId } from './model';
 
 export function statusOf(library: LibraryState, id: PhotoId): CurationStatus {
@@ -57,7 +58,7 @@ export function toggleStatus(
 }
 
 /**
- * Asigna manualmente un sector (o `null` para volver al de la carpeta).
+ * Asigna un sector (o `null` para dejarla «sin clasificar»).
  * Las fotos se quitan del orden manual de su sector anterior.
  */
 export function assignSector(
@@ -70,8 +71,7 @@ export function assignSector(
   const records = { ...library.records };
   const moving = new Set(photos.map((p) => p.id));
   for (const p of photos) {
-    const target = sector === null || sector === folderSector(p) ? null : sector;
-    upsert(records, p, { sector: target }, now);
+    upsert(records, p, { sector }, now);
   }
   const manualOrder: Record<string, readonly PhotoId[]> = {};
   for (const [name, ids] of Object.entries(library.manualOrder)) {
@@ -87,15 +87,47 @@ export function assignSector(
   return { ...library, records, manualOrder, extraSectors };
 }
 
-/** Marca las fotos para publicar dentro de `sector` (asignación + estado en un solo paso). */
-export function markForSector(
+/**
+ * Etapa 1 (clasificar): asigna el sector. Si una foto cambia de sector, su
+ * validación anterior deja de valer y vuelve a «por validar».
+ */
+export function classify(
   library: LibraryState,
   photos: readonly Photo[],
-  sector: string,
+  sector: string | null,
   now = Date.now(),
 ): LibraryState {
   if (photos.length === 0) return library;
-  return setStatus(assignSector(library, photos, sector, now), photos, 'marked', now);
+  const changed = photos.filter((p) => (library.records[p.id]?.sector ?? null) !== sector);
+  if (changed.length === 0) return library;
+  return setStatus(assignSector(library, changed, sector, now), changed, 'pending', now);
+}
+
+/**
+ * Clasifica por subcarpeta: cada foto sin sector recibe el nombre de su primera
+ * subcarpeta (útil si las fotos ya vienen separadas en «Entrada/», «Banda/»…).
+ */
+export function classifyByFolder(library: LibraryState, photos: readonly Photo[], now = Date.now()): LibraryState {
+  const groups = new Map<string, Photo[]>();
+  for (const p of photos) {
+    if (library.records[p.id]?.sector !== undefined) continue;
+    const folder = folderSector(p);
+    if (folder === ROOT_FOLDER) continue;
+    const list = groups.get(folder);
+    if (list) list.push(p);
+    else groups.set(folder, [p]);
+  }
+  let lib = library;
+  const names = [...groups.keys()].sort(naturalCompare);
+  for (const sector of names) lib = classify(lib, groups.get(sector)!, sector, now);
+  return lib;
+}
+
+/** Asegura que la biblioteca tenga los sectores de la lista (en ese orden, al principio). */
+export function withSectors(library: LibraryState, list: readonly string[]): LibraryState {
+  const merged = [...list, ...library.extraSectors.filter((s) => !list.includes(s))];
+  if (merged.length === library.extraSectors.length && merged.every((s, i) => s === library.extraSectors[i])) return library;
+  return { ...library, extraSectors: merged };
 }
 
 export function addSector(library: LibraryState, name: string): LibraryState {

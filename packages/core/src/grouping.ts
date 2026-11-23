@@ -32,6 +32,7 @@ function filterGroups(
   library: LibraryState,
   filter: PhotoFilter,
   duplicates?: ReadonlySet<PhotoId>,
+  sectorById?: ReadonlyMap<PhotoId, string>,
 ): FilteredSection[] {
   const out: FilteredSection[] = [];
   for (const group of groups) {
@@ -42,6 +43,7 @@ function filterGroups(
       if (filter.cameraId !== null && cameraIdOf(p) !== filter.cameraId) return false;
       if (filter.status !== 'all' && statusOf(library, id) !== filter.status) return false;
       if (filter.duplicatesOnly && !duplicates?.has(id)) return false;
+      if (sectorById && filter.sector !== null && sectorById.get(id) !== filter.sector) return false;
       return true;
     });
     if (ids.length > 0 || only === group.name) out.push({ sector: group.name, photoIds: ids });
@@ -60,15 +62,19 @@ export function filterOrdered(
   return filterGroups(ordered.sectors, filter.sector, byId, library, filter, duplicates);
 }
 
-/** Aplica el filtro sobre los grupos por carpeta de origen (`filter.folder`). */
+/**
+ * Aplica el filtro sobre los grupos por carpeta de origen (`filter.folder`).
+ * Si se pasa `sectorById`, `filter.sector` filtra por sector asignado (p. ej. «Sin clasificar»).
+ */
 export function filterBySource(
   groups: readonly PhotoGroup[],
   byId: ReadonlyMap<PhotoId, Photo>,
   library: LibraryState,
   filter: PhotoFilter,
   duplicates?: ReadonlySet<PhotoId>,
+  sectorById?: ReadonlyMap<PhotoId, string>,
 ): FilteredSection[] {
-  return filterGroups(groups, filter.folder, byId, library, filter, duplicates);
+  return filterGroups(groups, filter.folder, byId, library, filter, duplicates, sectorById);
 }
 
 export interface StatusCounts {

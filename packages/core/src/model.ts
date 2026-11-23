@@ -111,7 +111,7 @@ export interface FileFingerprint {
 /** Decisión de curación persistida para una foto. */
 export interface CurationRecord {
   readonly status: CurationStatus;
-  /** Sector asignado manualmente (si no, se usa el de la carpeta). */
+  /** Sector asignado en la etapa 1 (si falta, la foto está «sin clasificar»). */
   readonly sector?: string;
   readonly fingerprint: FileFingerprint;
   readonly updatedAt: number;
@@ -123,7 +123,7 @@ export interface LibraryState {
   readonly records: Readonly<Record<PhotoId, CurationRecord>>;
   /** Orden manual por sector: lista de IDs. Prevalece sobre el orden automático. */
   readonly manualOrder: Readonly<Record<string, readonly PhotoId[]>>;
-  /** Sectores creados a mano (además de los derivados de las carpetas). */
+  /** Lista de sectores, en el orden en que se muestran y se exportan. */
   readonly extraSectors: readonly string[];
 }
 

@@ -6,7 +6,11 @@ import {
   countGroups,
   filterBySource,
   groupBySource,
-  markForSector,
+  classify,
+  classifyByFolder,
+  DEFAULT_SECTORS,
+  NO_SECTOR,
+  withSectors,
   createHistory,
   DEFAULT_FILTER,
   detectFormat,
@@ -99,10 +103,10 @@ describe('sectores y orden manual', () => {
   const all = [p1, p2, p3, q1];
 
   it('asignación manual de sector', () => {
-    const lib = assignSector(emptyLibraryState(), [q1], 'Sector 1');
+    const lib = assignSector(classifyByFolder(emptyLibraryState(), all), [q1], 'Sector 1');
     const order = orderLibrary(all, lib, {});
     expect(order.sectors.find((s) => s.name === 'Sector 1')?.photoIds).toEqual([q1.id, p1.id, p2.id, p3.id]);
-    // Volver al sector de su carpeta
+    // Volver a «sin clasificar»
     const back = assignSector(lib, [q1], null);
     expect(back.records[q1.id]).toBeUndefined();
   });
@@ -130,7 +134,7 @@ describe('sectores y orden manual', () => {
   });
 
   it('filtros y contador de marcadas por sector', () => {
-    const lib = setStatus(setStatus(emptyLibraryState(), [p1, p3], 'marked'), [q1], 'discarded');
+    const lib = setStatus(setStatus(classifyByFolder(emptyLibraryState(), all), [p1, p3], 'marked'), [q1], 'discarded');
     const order = orderLibrary(all, lib, {});
     const counts = countBySector(order, lib);
     expect(counts.bySector.get('Sector 1')).toEqual({ total: 3, pending: 1, marked: 2, discarded: 0 });
@@ -170,35 +174,40 @@ describe('reconciliación de marcas y duplicados', () => {
   });
 });
 
-describe('curación por sector con vista estable por carpeta', () => {
+describe('flujo: clasificar → validar', () => {
   const a1 = makePhoto('Fotógrafo A/IMG_1.jpg', { time: '2024:05:01 10:00:00' });
   const a2 = makePhoto('Fotógrafo A/IMG_2.jpg', { time: '2024:05:01 09:00:00' });
   const b1 = makePhoto('Fotógrafo B/DSC_1.jpg', { time: '2024:05:01 09:30:00' });
   const photos = [a1, a2, b1];
 
-  it('agrupa por carpeta de origen y ordena por captura, sin importar el sector asignado', () => {
+  it('la vista de clasificación agrupa por carpeta y no se mueve al clasificar', () => {
     const before = groupBySource(photos, {});
     expect(before.map((g) => [g.name, g.photoIds])).toEqual([
       ['Fotógrafo A', [a2.id, a1.id]],
       ['Fotógrafo B', [b1.id]],
     ]);
-    const lib = markForSector(emptyLibraryState(), [a1], 'Sector 3');
-    expect(groupBySource(photos, {})).toEqual(before); // la foto no se mueve en la vista de curación
-    expect(orderLibrary(photos, lib, {}).sectors.find((s) => s.name === 'Sector 3')?.photoIds).toEqual([a1.id]);
+    const lib = classify(withSectors(emptyLibraryState(), DEFAULT_SECTORS), [a1], 'Banda');
+    expect(groupBySource(photos, {})).toEqual(before);
+    const order = orderLibrary(photos, lib, {});
+    expect(order.sectors.find((s) => s.name === 'Banda')?.photoIds).toEqual([a1.id]);
+    expect(order.sectors.find((s) => s.name === NO_SECTOR)?.photoIds).toEqual([a2.id, b1.id]);
   });
 
-  it('markForSector asigna y marca en un paso, y se deshace con setStatus', () => {
-    const lib = markForSector(emptyLibraryState(), [a1, b1], 'Sector 1');
-    expect(statusOf(lib, a1.id)).toBe('marked');
-    expect(lib.records[b1.id]?.sector).toBe('Sector 1');
-    expect(lib.extraSectors).toContain('Sector 1');
-    const moved = markForSector(lib, [a1], 'Sector 2');
-    expect(moved.records[a1.id]?.sector).toBe('Sector 2');
-    expect(statusOf(moved, a1.id)).toBe('marked');
+  it('clasificar no aprueba; cambiar de sector anula la validación anterior', () => {
+    let lib = classify(emptyLibraryState(), [a1, b1], 'Entrada');
+    expect(statusOf(lib, a1.id)).toBe('pending');
+    expect(lib.records[b1.id]?.sector).toBe('Entrada');
+    lib = setStatus(lib, [a1, b1], 'marked'); // aprobadas por el validador
+    expect(classify(lib, [a1], 'Entrada')).toBe(lib); // mismo sector: no cambia nada
+    lib = classify(lib, [a1], 'Banda');
+    expect(statusOf(lib, a1.id)).toBe('pending');
+    expect(statusOf(lib, b1.id)).toBe('marked');
+    lib = classify(lib, [b1], null);
+    expect(lib.records[b1.id]).toBeUndefined();
   });
 
   it('filtra por carpeta de origen y cuenta por grupo', () => {
-    const lib = markForSector(emptyLibraryState(), [a1], 'Sector 1');
+    const lib = setStatus(classify(emptyLibraryState(), [a1], 'Entrada'), [a1], 'marked');
     const groups = groupBySource(photos, {});
     const byId = new Map(photos.map((p) => [p.id, p]));
     const onlyB = filterBySource(groups, byId, lib, { ...DEFAULT_FILTER, folder: 'Fotógrafo B' });

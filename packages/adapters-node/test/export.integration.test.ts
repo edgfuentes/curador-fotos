@@ -12,6 +12,7 @@ import {
   buildExportPlan,
   DEFAULT_EXPORT_OPTIONS,
   detectFormat,
+  classifyByFolder,
   emptyLibraryState,
   extensionOf,
   orderLibrary,
@@ -68,7 +69,7 @@ async function snapshotOriginals(): Promise<Record<string, { hash: string; mtime
 }
 
 function prepare(photos: Photo[]): { lib: LibraryState; ids: string[]; sectorById: ReadonlyMap<string, string> } {
-  let lib = setStatus(emptyLibraryState(), photos, 'marked');
+  let lib = setStatus(classifyByFolder(emptyLibraryState(), photos), photos, 'marked');
   lib = setStatus(lib, photos.filter((p) => p.fileName === 'descartada.heic'), 'discarded');
   const ordered = orderLibrary(photos, lib, {});
   return { lib, ids: ordered.flat.filter((id) => statusOf(lib, id) === 'marked'), sectorById: ordered.sectorById };

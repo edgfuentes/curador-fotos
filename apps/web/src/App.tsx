@@ -20,6 +20,7 @@ export function App() {
   const store = useStoreApi();
   const phase = useSession((s) => s.phase);
   const view = useSession((s) => s.view);
+  const stage = useSession((s) => s.stage);
   const dialog = useSession((s) => s.dialog);
   const toasts = useSession((s) => s.toasts);
   useShortcuts(store);
@@ -50,7 +51,7 @@ export function App() {
             <main id="main" className="main">
               <Grid />
             </main>
-            <SectorsPanel />
+            {stage === 'classify' && <SectorsPanel />}
           </div>
           <SectorWindows />
           {view === 'review' && <Review />}

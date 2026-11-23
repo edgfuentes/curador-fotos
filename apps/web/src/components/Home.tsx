@@ -53,8 +53,8 @@ export function Home() {
         </div>
         <h1 id="home-title">Curador de Fotos</h1>
         <p className="home-lead">
-          Ordena por fecha real de captura, marca las que se publican y exporta los <strong>originales</strong> sin ninguna
-          pérdida de calidad.
+          <strong>1</strong> el fotógrafo clasifica cada foto por sector · <strong>2</strong> un validador las aprueba o rechaza ·{' '}
+          <strong>3</strong> se exportan los <strong>originales</strong> aprobados, sin ninguna pérdida de calidad.
         </p>
         <div className="home-actions">
           <button className="btn btn-primary btn-lg" onClick={pick} disabled={busy} autoFocus>

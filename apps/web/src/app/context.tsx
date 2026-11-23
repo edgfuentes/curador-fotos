@@ -1,8 +1,8 @@
 import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import {
   countBySector,
-  countGroups,
   filterBySource,
+  filterOrdered,
   groupBySource,
   NO_SECTOR,
   orderLibrary,
@@ -67,40 +67,65 @@ function memo<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) => R 
 export interface Derived {
   /** Orden final por sector (lo que se exporta). */
   ordered: OrderedLibrary;
-  /** Vista de curación: fotos por carpeta de origen, filtradas. No cambian de lugar al asignarlas. */
+  /**
+   * Fotos en pantalla según la etapa:
+   * - clasificar: por carpeta de origen (no se mueven al asignarles sector);
+   * - validar: por sector, en el orden de exportación.
+   */
   sections: FilteredSection[];
   visible: PhotoId[];
-  /** Contadores por sector asignado (panel derecho y exportación). */
+  /** Contadores de estado por sector (incluye «Sin clasificar»). */
   counts: { bySector: Map<string, StatusCounts>; total: StatusCounts };
-  /** Contadores por carpeta de origen (cuadrícula y filtro lateral). */
-  folderCounts: { bySector: Map<string, StatusCounts>; total: StatusCounts };
+  /** Por carpeta de origen: total de fotos y cuántas ya tienen sector. */
+  folderStats: Map<string, { total: number; classified: number }>;
   /** Sectores a los que se puede asignar una foto, en orden (las teclas 1–9 usan este orden). */
   sectorNames: string[];
+  /** Fotos sin sector. */
+  unclassified: number;
 }
 
 const orderedSel = memo(orderLibrary);
+const orderedFilterSel = memo(orderLibrary);
 const sourceSel = memo(groupBySource);
-const sectionsSel = memo(filterBySource);
+const classifySectionsSel = memo(filterBySource);
+const validateSectionsSel = memo(
+  (ordered: OrderedLibrary, byId: SessionState['byId'], library: SessionState['history']['present'], filter: SessionState['filter'], sector: string | null, dups: ReadonlySet<PhotoId>) =>
+    filterOrdered(ordered, byId, library, { ...filter, folder: null, sector }, dups).filter((s) => s.sector !== NO_SECTOR),
+);
 const visibleSel = memo((sections: FilteredSection[]) => sections.flatMap((s) => s.photoIds));
 const countsSel = memo(countBySector);
-const folderCountsSel = memo(countGroups);
-const sectorNamesSel = memo((ordered: OrderedLibrary, counts: { bySector: Map<string, StatusCounts> }) =>
-  ordered.sectors.filter((s) => s.name !== NO_SECTOR || (counts.bySector.get(s.name)?.marked ?? 0) > 0).map((s) => s.name),
-);
+const folderStatsSel = memo((groups: readonly PhotoGroup[], ordered: OrderedLibrary) => {
+  const m = new Map<string, { total: number; classified: number }>();
+  for (const g of groups) {
+    let classified = 0;
+    for (const id of g.photoIds) if (ordered.sectorById.get(id) !== NO_SECTOR) classified++;
+    m.set(g.name, { total: g.photoIds.length, classified });
+  }
+  return m;
+});
+const sectorNamesSel = memo((ordered: OrderedLibrary) => ordered.sectors.filter((s) => s.name !== NO_SECTOR).map((s) => s.name));
 
-function compute(s: SessionState) {
+function compute(s: SessionState): Derived {
   const library = s.history.present;
   const ordered = orderedSel(s.photos, library, s.cameras);
   const source: PhotoGroup[] = sourceSel(s.photos, s.cameras);
-  const sections = sectionsSel(source, s.byId, s.reviewFilterLibrary ?? library, s.filter, s.duplicates.ids);
+  // Al revisar a pantalla completa, el filtro se evalúa con la biblioteca del momento en que se abrió,
+  // para que las fotos no desaparezcan mientras se trabaja.
+  const filterLib = s.reviewFilterLibrary ?? library;
+  const filterOrder = s.reviewFilterLibrary ? orderedFilterSel(s.photos, filterLib, s.cameras) : ordered;
+  const sections =
+    s.stage === 'classify'
+      ? classifySectionsSel(source, s.byId, filterLib, s.filter, s.duplicates.ids, filterOrder.sectorById)
+      : validateSectionsSel(filterOrder, s.byId, filterLib, s.filter, s.validateSector, s.duplicates.ids);
   const counts = countsSel(ordered, library);
   return {
     ordered,
     sections,
     visible: visibleSel(sections),
     counts,
-    folderCounts: folderCountsSel(source, library),
-    sectorNames: sectorNamesSel(ordered, counts),
+    folderStats: folderStatsSel(source, ordered),
+    sectorNames: sectorNamesSel(ordered),
+    unclassified: counts.bySector.get(NO_SECTOR)?.total ?? 0,
   };
 }
 
@@ -113,7 +138,8 @@ export function useDerived(): Derived {
   const ordered = useSession((s) => compute(s).ordered);
   const sections = useSession((s) => compute(s).sections);
   const counts = useSession((s) => compute(s).counts);
-  const folderCounts = useSession((s) => compute(s).folderCounts);
+  const folderStats = useSession((s) => compute(s).folderStats);
   const sectorNames = useSession((s) => compute(s).sectorNames);
-  return { ordered, sections, visible: visibleSel(sections), counts, folderCounts, sectorNames };
+  const unclassified = useSession((s) => compute(s).unclassified);
+  return { ordered, sections, visible: visibleSel(sections), counts, folderStats, sectorNames, unclassified };
 }

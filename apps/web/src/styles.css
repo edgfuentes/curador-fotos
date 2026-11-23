@@ -1276,3 +1276,219 @@ select {
     width: 210px;
   }
 }
+
+/* ---------------------------------------------------------------- flujo en etapas */
+:root {
+  --classified: #6b4fd8;
+  --classified-bg: #ece7ff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --classified: #a996ff;
+    --classified-bg: #261f45;
+  }
+}
+:root[data-theme='dark'] {
+  --classified: #a996ff;
+  --classified-bg: #261f45;
+}
+.text-classified {
+  color: var(--classified);
+}
+.text-discarded {
+  color: var(--discarded);
+}
+.stages {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--bg-sunk);
+  flex-shrink: 0;
+}
+.stage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 6px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.stage:hover:not(:disabled) {
+  background: var(--bg-elev);
+}
+.stage:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.stage.on {
+  background: var(--bg-elev);
+  box-shadow: var(--shadow);
+}
+.stage-n {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 12px;
+  background: var(--border);
+}
+.stage.on .stage-n {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.stage-txt {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  line-height: 1.15;
+}
+.stage-txt small {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+.tile.is-classified .tile-img {
+  box-shadow: inset 0 0 0 3px var(--classified);
+}
+.sector-select.is-classified {
+  border-color: var(--classified);
+  background: var(--classified-bg);
+  color: var(--classified);
+  font-weight: 600;
+}
+.chip-sector {
+  background: var(--classified-bg);
+  color: var(--classified);
+}
+.chip-none {
+  color: var(--fg-muted);
+  border: 1px dashed var(--border);
+  font-weight: 500;
+}
+.validate-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  width: 100%;
+}
+.vbtn {
+  height: 26px;
+  font-size: 12px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.vbtn-ok.on {
+  background: var(--marked);
+  border-color: var(--marked);
+  color: #fff;
+  font-weight: 600;
+}
+.vbtn-no.on {
+  background: var(--discarded);
+  border-color: var(--discarded);
+  color: #fff;
+  font-weight: 600;
+}
+.vbtn-ok:hover:not(.on) {
+  border-color: var(--marked);
+  color: var(--marked);
+}
+.vbtn-no:hover:not(.on) {
+  border-color: var(--discarded);
+  color: var(--discarded);
+}
+.grid-header-action {
+  margin-left: auto;
+}
+.unclassified-card {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  background: var(--bg);
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+}
+.unclassified-card strong {
+  font-size: 20px;
+  margin-right: 4px;
+}
+.unclassified-card.on {
+  border-style: solid;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.unclassified-card.done {
+  border-style: solid;
+  border-color: var(--marked);
+  color: var(--marked);
+  font-weight: 600;
+}
+.sector-card-count strong {
+  color: var(--classified);
+}
+.validate-list button {
+  align-items: stretch;
+}
+.vsector {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+}
+.vsector-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 600;
+}
+.progress-mini {
+  display: flex;
+  height: 5px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--bg-sunk);
+}
+.pm-ok {
+  background: var(--marked);
+}
+.pm-no {
+  background: var(--discarded);
+}
+.btn-classified {
+  border-color: var(--classified);
+  background: var(--classified-bg);
+  color: var(--classified);
+}
+.status-classified {
+  background: var(--classified);
+  color: #fff;
+}
+.review-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.stile.is-discarded .stile-img img {
+  opacity: 0.35;
+  filter: grayscale(0.8);
+}
+.stile .badge {
+  top: 6px;
+  right: 6px;
+}
+@media (max-width: 1250px) {
+  .stage-txt small {
+    display: none;
+  }
+}

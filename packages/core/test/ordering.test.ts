@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCameraInfo,
+  classifyByFolder,
+  DEFAULT_SECTORS,
+  withSectors,
   effectiveCaptureMs,
   emptyLibraryState,
   formatOffset,
@@ -79,14 +82,22 @@ describe('orden por fecha EXIF', () => {
     expect(orderLibrary(photos, lib, {}).flat).toEqual(['a/B_9.jpg', 'a/B_10.jpg']);
   });
 
-  it('agrupa por sector (primera subcarpeta) en orden natural, "Sin sector" al final', () => {
+  it('sin clasificar por defecto; sectores en el orden de la lista y «Sin clasificar» al final', () => {
     const photos: Photo[] = [
       makePhoto('Sector 10/a.jpg', { time: '2026:11:21 09:00:00' }),
       makePhoto('suelta.jpg', { time: '2026:11:21 08:00:00' }),
       makePhoto('Sector 2/iphone/b.jpg', { time: '2026:11:21 11:00:00' }),
     ];
-    const order = orderLibrary(photos, lib, {});
-    expect(order.sectors.map((s) => s.name)).toEqual(['Sector 2', 'Sector 10', NO_SECTOR]);
+    expect(orderLibrary(photos, lib, {}).sectors.map((s) => s.name)).toEqual([NO_SECTOR]);
+    const listed = withSectors(lib, DEFAULT_SECTORS);
+    expect(orderLibrary(photos, listed, {}).sectors.map((s) => s.name)).toEqual([...DEFAULT_SECTORS, NO_SECTOR]);
+    const byFolder = classifyByFolder(listed, photos);
+    expect(orderLibrary(photos, byFolder, {}).sectors.map((s) => s.name)).toEqual([
+      ...DEFAULT_SECTORS,
+      'Sector 2',
+      'Sector 10',
+      NO_SECTOR,
+    ]);
   });
 });
 
@@ -150,7 +161,7 @@ describe('orden manual', () => {
       makePhoto('S/1.jpg', { time: '2026:11:21 10:00:01' }),
       makePhoto('S/2.jpg', { time: '2026:11:21 10:00:02' }),
     ];
-    const lib: LibraryState = { ...emptyLibraryState(), manualOrder: { S: ['S/2.jpg', 'S/1.jpg'] } };
+    const lib: LibraryState = { ...classifyByFolder(emptyLibraryState(), photos), manualOrder: { S: ['S/2.jpg', 'S/1.jpg'] } };
     const order = orderLibrary(photos, lib, {});
     expect(order.flat).toEqual(['S/2.jpg', 'S/1.jpg']);
     expect(order.sectors[0]?.hasManualOrder).toBe(true);
